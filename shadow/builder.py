@@ -18,7 +18,7 @@ class ShadowBuilder:
 
         name, type = name.lower(), type.lower()  # Format
 
-        if type not in self.factory.keys():
+        if type not in self.factory.keys():  # pragma: no cover
             raise TypeError("Invalid build type")
 
         # Retrieve bot from factory

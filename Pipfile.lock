@@ -10,7 +10,11 @@
         "sources": [
             {
                 "name": "pypi",
+<<<<<<< HEAD
                 "url": "https://pypi.python.org/simple",
+=======
+                "url": "https://pypi.org/simple",
+>>>>>>> ed7aa183590f259931b1305d595ef05468fb365a
                 "verify_ssl": true
             }
         ]

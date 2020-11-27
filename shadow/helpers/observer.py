@@ -3,14 +3,14 @@
 # TODO - Logger
 
 
-class Observable:
+class Observable:  # pragma: no cover
 
     """Publisher class"""
 
     pass
 
 
-class ShadowObserver:
+class ShadowObserver:  # pragma: no cover
 
     """Subscriber class"""
 
