@@ -1,7 +1,8 @@
-import sys
+"""Main script for the Shadow package"""
 
-from shadow.shadow import fib
+from shadow import Shadow
 
 if __name__ == "__main__":
-    n = int(sys.argv[1])
-    print(fib(n))
+    """Entry point to the Shadow package"""
+
+    shadow = Shadow()
