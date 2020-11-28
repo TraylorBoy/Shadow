@@ -11,7 +11,9 @@ class ShadowBot:
         """Set default properties"""
 
         self.__id = "Default"  # Used to identify the ShadowBot
+        self.build_type = "default"
         self.state = ShadowState()
+        self.state.managing = self
 
     @property
     def name(self) -> str:

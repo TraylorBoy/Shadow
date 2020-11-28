@@ -1,6 +1,7 @@
 """This module provides a builder class to make ShadowBots"""
 
 from shadow.bot import ShadowBot
+from shadow.helpers.observer import ShadowObserver
 
 
 class ShadowBuilder:
@@ -11,7 +12,7 @@ class ShadowBuilder:
     def factory(self) -> dict:
         """Build factory"""
 
-        return {"default": ShadowBot}
+        return {"default": ShadowBot, "observer": ShadowObserver}
 
     def make(self, name: str, type: str = "default") -> ShadowBot:
         """Builds a ShadowBot with the supplied configuration"""
@@ -25,7 +26,10 @@ class ShadowBuilder:
         bot = self.factory[type]()
 
         # Construct
-        bot.build_id = name
+        if type == "default":
+            bot.build_id = name
+        else:
+            bot.name = f"{type} - {name}"
 
         # Return product
         return bot

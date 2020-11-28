@@ -6,4 +6,9 @@ if __name__ == "__main__":
     """Entry point to the Shadow package"""
 
     shadow = Shadow()
-    print(shadow)
+
+    shadowbot = shadow.build(name="TestBot")
+
+    observer = shadow.observe(shadowbot)
+
+    shadowbot.state.revive()  # type: ignore
