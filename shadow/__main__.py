@@ -1,14 +1,7 @@
-"""Main script for the Shadow package"""
+import sys
 
-from shadow import Shadow
+from shadow.core import fib
 
 if __name__ == "__main__":
-    """Entry point to the Shadow package"""
-
-    shadow = Shadow()
-
-    shadowbot = shadow.build(name="TestBot")
-
-    observer = shadow.observe(shadowbot)
-
-    shadowbot.state.revive()  # type: ignore
+    n = int(sys.argv[1])
+    print(fib(n))
