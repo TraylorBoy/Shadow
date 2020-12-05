@@ -19,7 +19,7 @@ class ShadowBot:
 
         logger.debug("Starting responder")
 
-    def rename(self, new_name: Optional[str] = None) -> None:
+    def rename(self, new_name: Optional[str] = None):
         """Name setter"""
 
         self.name = new_name

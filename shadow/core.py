@@ -22,7 +22,7 @@ class Shadow:
         self.network = None
         self.builder = None
 
-    def make(self, name: Optional[str] = None) -> ShadowBot:
+    def make(self, name: Optional[str] = None):
         """Constructs ShadowBots with provided args"""
 
         # Create ShadowBot
