@@ -2,6 +2,8 @@
 
 from typing import Optional
 
+from loguru import logger
+
 
 class ShadowBot:
 
@@ -13,8 +15,13 @@ class ShadowBot:
         self.name: Optional[str] = None
 
         # TODO - Receiver & Responder ShadowClones
+        logger.debug("Starting receiver")
+
+        logger.debug("Starting responder")
 
     def rename(self, new_name: Optional[str] = None) -> None:
         """Name setter"""
 
         self.name = new_name
+
+        logger.debug(f"New name set: {self.name}")

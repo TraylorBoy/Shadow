@@ -1,8 +1,14 @@
 """Entry point to the Shadow project"""
 
+from datetime import datetime
 from typing import Optional
 
+from loguru import logger
+
 from shadow.bot import ShadowBot
+
+# Setup log file
+logger.add(f"shadow/logs/{datetime.now()}.log")
 
 
 class Shadow:
@@ -24,6 +30,8 @@ class Shadow:
 
         # Build part
         shadowbot.rename(new_name=name)
+
+        logger.info(f"Constructed ShadowBot with name: {name}")
 
         # Return product
         return shadowbot
