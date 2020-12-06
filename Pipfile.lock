@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "02b7500cfd634294c079b04455e94928c8a72a6f2f9df149a23020762be24721"
+            "sha256": "0f2bca31807e46d4c35854d3c12384df958a299ff4be2cb54a9bb5d3819b3eaf"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -23,6 +23,14 @@
             ],
             "index": "pypi",
             "version": "==0.5.3"
+        },
+        "python-statemachine": {
+            "hashes": [
+                "sha256:b816ec61639ddd3b1d3a8ad06a62840d30b9e7176b4b94fc183cebd1c7d5caf2",
+                "sha256:f6a70c1f4ed8b1198487eac09114ec9ea1166be6d793996f8c1b92d590a9ebae"
+            ],
+            "index": "pypi",
+            "version": "==0.8.0"
         }
     },
     "develop": {
@@ -101,7 +109,7 @@
                 "sha256:cedb2f9e1f990918ea061f28a0f0077a07702e3819602d3507e2ff98c8d20636",
                 "sha256:e8caf961e1b1a945db76f1b5fa9c91498d15f545ac0ababbe575cfab185d3bd8"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
             "version": "==5.3"
         },
         "distlib": {
