@@ -27,10 +27,14 @@ class ShadowBot:
     def activate(self):
         """Transitions state from dead to alive"""
 
+        logger.debug("Activating")
+
         self.state.revive()
 
     def deactivate(self):
         """Transitions state from alive to dead"""
+
+        logger.debug("Deactivating")
 
         self.state.kill()
 

@@ -17,6 +17,14 @@ def main():
 
     logger.info(f"Created ShadowBot: {shadowbot.name}")
 
+    logger.info("Turning the ShadowBot on")
+
+    shadowbot.activate()
+
+    logger.info("Turning the ShadowBot off")
+
+    shadowbot.deactivate()
+
 
 if __name__ == "__main__":
     """Entry point"""
