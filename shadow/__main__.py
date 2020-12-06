@@ -1,37 +1,44 @@
 """Command line script for the Shadow package"""
 
+from time import sleep
+
 from loguru import logger
 
+from shadow.clone import ShadowClone
 from shadow.core import Shadow
 
-# TODO: Console Commands
+# TODO: Remove test code and add console Commands
 
 
 @logger.catch
 def main():
     """Provides a command interface for interacting with the Shadow package"""
 
+    # Test Code
+
     shadow = Shadow()
 
-    shadowbot = shadow.make(name="TestBot")
+    shadowclone = ShadowClone()
+    shadowclone_two = ShadowClone()
 
-    logger.info(f"Created ShadowBot: {shadowbot.name}")
+    def test_run():
+        sleep(5)
 
-    shadowobserver = shadow.observe(bot=shadowbot)
+    shadowclone.assign(func=test_run)
+    shadowclone_two.assign(func=shadow.make, name="TestBot")
 
-    logger.info(f"Observing {shadowbot.name}")
+    shadowclone.perform()
 
-    shadowbot.activate()
+    shadowclone_three = ShadowClone()
+    shadowclone_three.assign(
+        func=shadow.observe, bot=shadowclone_two.perform(block=True)
+    )
 
-    shadowbot.deactivate()
+    shadowbot = shadowclone_two.perform()
 
-    logger.info(f"Unobserving {shadowbot.name}")
+    shadowclone_three.perform(block=True)
 
-    shadow.unobserve(bot=shadowbot, observer=shadowobserver)
-
-    shadowbot.activate()
-
-    shadowbot.deactivate()
+    print(shadowbot)
 
 
 if __name__ == "__main__":

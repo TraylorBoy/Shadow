@@ -54,4 +54,4 @@ def test_task():
 
     assert shadowclone.task[0] is did_sleep
     assert shadowclone.task[0](**shadowclone.task[1])
-    assert shadowclone.perform()
+    assert shadowclone.perform(block=True)
