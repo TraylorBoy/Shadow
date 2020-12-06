@@ -6,6 +6,7 @@ from typing import Optional
 from loguru import logger
 
 from shadow.bot import ShadowBot
+from shadow.helpers.observer import ShadowObserver
 
 # Setup log file
 logger.add(f"shadow/logs/{datetime.now()}.log")
@@ -20,7 +21,6 @@ class Shadow:
 
         # TODO
         self.network = None
-        self.builder = None
 
     def make(self, name: Optional[str] = None):
         """Constructs ShadowBots with provided args"""
@@ -35,3 +35,22 @@ class Shadow:
 
         # Return product
         return shadowbot
+
+    def observe(self, bot: ShadowBot):
+        """Creates and registers a ShadowObserver"""
+
+        observer: ShadowObserver = ShadowObserver()
+
+        # Register observer to start receiving notifications
+        bot.state.register(observer=observer)
+
+        logger.info(f"Observer registered for {bot.name}")
+
+        return observer
+
+    def unobserve(self, bot: ShadowBot, observer: ShadowObserver):
+        """Deregisters ShadowObserver from ShadowBot notification list"""
+
+        bot.state.deregister(observer=observer)
+
+        logger.info(f"Observer deregistered for {bot.name}")

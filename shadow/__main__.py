@@ -13,15 +13,23 @@ def main():
 
     shadow = Shadow()
 
-    shadowbot = shadow.make("TestBot")
+    shadowbot = shadow.make(name="TestBot")
 
     logger.info(f"Created ShadowBot: {shadowbot.name}")
 
-    logger.info("Turning the ShadowBot on")
+    shadowobserver = shadow.observe(bot=shadowbot)
+
+    logger.info(f"Observing {shadowbot.name}")
 
     shadowbot.activate()
 
-    logger.info("Turning the ShadowBot off")
+    shadowbot.deactivate()
+
+    logger.info(f"Unobserving {shadowbot.name}")
+
+    shadow.unobserve(bot=shadowbot, observer=shadowobserver)
+
+    shadowbot.activate()
 
     shadowbot.deactivate()
 

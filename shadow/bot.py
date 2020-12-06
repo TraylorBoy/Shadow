@@ -17,6 +17,8 @@ class ShadowBot:
         self.name: Optional[str] = None
         self.state: ShadowState = ShadowState()
 
+        # Register state
+
     def rename(self, new_name: Optional[str] = None):
         """Name setter"""
 
@@ -31,12 +33,18 @@ class ShadowBot:
 
         self.state.revive()
 
+        # Notify observers
+        self.state.notify("State changed from dead to alive")
+
     def deactivate(self):
         """Transitions state from alive to dead"""
 
         logger.debug("Deactivating")
 
         self.state.kill()
+
+        # Notify observers
+        self.state.notify("State changed from dead to alive")
 
     def alive(self):
         """Checks if current state is alive"""
