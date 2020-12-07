@@ -5,6 +5,7 @@ python:
 branches:
     only:
     - dev
+    - master
 
 # Command to install dependencies
 install: make install
