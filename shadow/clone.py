@@ -1,5 +1,6 @@
 """Worker class that performs tasks on a seperate process"""
 
+import queue
 from copy import copy
 from multiprocessing import Process, Queue
 from typing import Any, Callable, Optional, Tuple
@@ -18,6 +19,9 @@ class ShadowClone:
 
         # Results from completed task
         self.__result: Queue = Queue()
+
+        # Stores results
+        self.history: queue.Queue = Queue()
 
     def clone(self):
         """Prototype method for copying ShadowClones"""
@@ -60,4 +64,15 @@ class ShadowClone:
         if result is not None:
             self.__result.put(result)
 
-        logger.debug(f"Task finished with result: {self.__result}")
+        # Stores ALL results
+        self.history.put(result)
+
+        logger.debug(f"Task finished with result: {result}")
+
+    def check_history(self):
+        """Gets result from last completed task"""
+
+        if not self.history.empty():
+            return self.history.get()
+
+        return None
