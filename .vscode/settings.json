@@ -1,3 +1,4 @@
 {
-    "python.linting.enabled": false
+    "python.linting.enabled": false,
+    "python.pythonPath": "/Users/traylorboy/.local/share/virtualenvs/Shadow-QpcONvI3"
 }

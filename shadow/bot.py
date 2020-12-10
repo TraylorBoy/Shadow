@@ -88,6 +88,12 @@ class ShadowBot:
     def run(self, signal: str, wait: bool = False):
         """Performs the task attached to the signal and returns the result"""
 
+        if self.dead():
+
+            logger.warning("Must be alive in order to perform tasks")
+
+            return None
+
         shadowclone: ShadowClone = self.clones[signal]
 
         result: Optional[Any] = None

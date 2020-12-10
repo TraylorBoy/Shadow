@@ -61,7 +61,15 @@ def test_task():
 
     shadowbot.add_task(signal="sleep", task=sleep_task, task_args=kwargs)
 
+    turn_on()
+
     assert shadowbot.run(signal="sleep", wait=True)
+
+    turn_off()
+
+    assert shadowbot.run(signal="sleep", wait=True) is None
+
+    turn_on()
 
     shadowbot.add_task(signal="truth", task=true_task)
 

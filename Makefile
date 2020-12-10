@@ -15,8 +15,5 @@ clean:
 	rm -r .pytest_cache
 	rm -r .mypy_cache
 
-report:
-	pytest --cov
-
-report missing:
+report-missing:
 	pytest --cov --cov-report=term-missing
