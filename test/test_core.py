@@ -2,7 +2,7 @@ from typing import Optional
 
 from shadow.bot import ShadowBot
 from shadow.core import Shadow
-from shadow.helpers.observer import ShadowObserver
+from shadow.observer import ShadowObserver
 
 shadow: Shadow = Shadow()
 

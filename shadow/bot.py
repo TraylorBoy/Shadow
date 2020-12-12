@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 from loguru import logger
 
 from shadow.clone import ShadowClone
-from shadow.helpers.observer import Observable
+from shadow.observer import Observable
 
 
 class ShadowBot(Observable):

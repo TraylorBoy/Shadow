@@ -6,7 +6,7 @@ from typing import Optional
 from loguru import logger
 
 from shadow.bot import ShadowBot
-from shadow.helpers.observer import ShadowObserver
+from shadow.observer import ShadowObserver
 
 # Setup log file
 logger.add(
