@@ -9,7 +9,11 @@ from shadow.bot import ShadowBot
 from shadow.helpers.observer import ShadowObserver
 
 # Setup log file
-logger.add(f"shadow/logs/{datetime.now()}.log")
+logger.add(
+    f"shadow/logs/{datetime.now().month}_{datetime.now().day}_{datetime.now().year}.log",
+    rotation="500 MB",
+    enqueue=True,
+)
 
 
 class Shadow:
@@ -42,7 +46,7 @@ class Shadow:
         observer: ShadowObserver = ShadowObserver()
 
         # Register observer to start receiving notifications
-        bot.state.register(observer=observer)
+        bot.register(observer=observer)
 
         logger.info(f"Observer registered for {bot.name}")
 
@@ -51,6 +55,6 @@ class Shadow:
     def unobserve(self, bot: ShadowBot, observer: ShadowObserver):
         """Deregisters ShadowObserver from ShadowBot notification list"""
 
-        bot.state.deregister(observer=observer)
+        bot.deregister(observer=observer)
 
         logger.info(f"Observer deregistered for {bot.name}")

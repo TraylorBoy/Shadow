@@ -32,15 +32,15 @@ def test_observe():
     shadowbot: ShadowBot = make_shadowbot("TestBot")
     observer: ShadowObserver = observe_shadowbot(bot=shadowbot)
 
-    assert observer in shadowbot.state.observers
+    assert observer in shadowbot.observers
 
-    shadowbot.activate()
-    shadowbot.deactivate()
+    shadowbot.start()
+    shadowbot.stop()
 
     kwargs = {"msg": "test"}
 
-    shadowbot.state.notify(**kwargs)
+    shadowbot.notify(**kwargs)
 
     shadow.unobserve(bot=shadowbot, observer=observer)
 
-    assert observer not in shadowbot.state.observers
+    assert observer not in shadowbot.observers

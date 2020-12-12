@@ -12,8 +12,6 @@ class ShadowObserver:
     def update(self, *args, **kwargs):
         """Notifies all registered observers"""
 
-        logger.info("Msg received")
-
         for msg in args:
             logger.info(msg)
 

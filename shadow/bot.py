@@ -1,23 +1,45 @@
 """Automated task runner"""
 
-from typing import Any, Callable, Dict, Optional
+import os
+from multiprocessing import Process, Queue
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from loguru import logger
 
 from shadow.clone import ShadowClone
-from shadow.helpers.state import ShadowState
+from shadow.helpers.observer import Observable
 
 
-class ShadowBot:
+class ShadowBot(Observable):
 
     """Base bot class"""
 
     def __init__(self):
-        """Sets the default name and attaches the state machine"""
+        """Sets the default properties"""
 
+        self.__setup()
+
+        self.__process: Process = Process(target=self.run)
+        self.messages: Queue = Queue()
+        self.results: Queue = Queue()
+
+    def __setup(self):
+        """Initializes ShadowBot"""
+
+        # Bot ID
         self.name: Optional[str] = None
-        self.state: ShadowState = ShadowState()
+
+        # Create task workers and add default tasks
+        self.__shadow_clone_jutsu()
+
+        # State
+        self.on = False
+
+    def __shadow_clone_jutsu(self):
+        """Creates worker dict and instantiates initial workers"""
+
         self.clones: Dict[str, ShadowClone] = {}
+        self.add_task(signal="history", task=self.history)
 
     def rename(self, new_name: Optional[str] = None):
         """Name setter"""
@@ -26,45 +48,19 @@ class ShadowBot:
 
         logger.debug(f"New name set: {self.name}")
 
-    def activate(self):
-        """Transitions state from dead to alive"""
+    def running(self):
+        """Checks if process is started and state is on"""
 
-        logger.debug("Activating")
+        turned_on: bool = self.on and self.__process.is_alive()
 
-        self.state.revive()
-
-        # Notify observers
-        self.state.notify("State changed from dead to alive")
-
-    def deactivate(self):
-        """Transitions state from alive to dead"""
-
-        logger.debug("Deactivating")
-
-        self.state.kill()
-
-        # Notify observers
-        self.state.notify("State changed from dead to alive")
-
-    def alive(self):
-        """Checks if current state is alive"""
-
-        is_alive: bool = self.state.is_alive
-
-        return is_alive
-
-    def dead(self):
-        """Checks if current state is dead"""
-
-        is_dead: bool = self.state.is_dead
-
-        return is_dead
+        return turned_on
 
     def add_task(
         self, signal: str, task: Callable, task_args: Optional[Dict[str, Any]] = {}
     ):
         """Delegates task to a ShadowClone which can be called via signal"""
 
+        # Shadow Clone Jutsu
         if signal not in self.clones.keys():
             # Create a clone and assign the task
             clone: ShadowClone = ShadowClone()
@@ -85,40 +81,101 @@ class ShadowBot:
 
         return signal in self.clones.keys()
 
-    def run(self, signal: str, wait: bool = False):
+    def perform_task(self, signal: str, wait: bool = False):
         """Performs the task attached to the signal and returns the result"""
-
-        if self.dead():
-
-            logger.warning("Must be alive in order to perform tasks")
-
-            return None
 
         shadowclone: ShadowClone = self.clones[signal]
 
         result: Optional[Any] = None
 
-        if wait:
-            # Wait for result
-            result = shadowclone.perform(block=True)
-
-        else:
-            result = shadowclone.perform()
-
-        logger.debug(f"Result compiled: {result}")
+        result = shadowclone.perform(block=True) if wait else shadowclone.perform()
 
         return result
 
-    def get_result(self, signal: str):
-        """Returns last result for task attached to signal"""
+    def start(self):
+        """ShadowBot starts listening for messages on a seperate process"""
 
-        if signal in self.clones.keys():
+        if not self.running():
 
-            # Check clone history for result
-            result: Any = self.clones[signal].check_history()
+            # Transition state
+            self.on = True
 
-            if result is not None:
-                return result
+            # Notify observers of state change
+            self.notify("Starting up")
 
-            # No result
-            return False
+            # Run the process
+            self.__process.start()
+
+    def stop(self):
+        """Stops the running ShadowBot process"""
+
+        if self.running():
+
+            # Send stop message to process
+            self.messages.put(("stop", True))
+
+            # Wait for process to finish
+            self.__process.join()
+
+    def history(self):
+        """Retrieves all results from each clone history"""
+
+        hist: Dict[str, Optional[Any]] = {}
+        skip_list = ["history"]
+
+        for signal, clone in self.clones.items():
+            if signal in skip_list:
+                continue
+
+            hist[signal] = clone.check_history()
+
+        return hist
+
+    @logger.catch
+    def run(self):
+        """Waits till it receives a signal then performs task associated with signal"""
+
+        # Notify observers
+        self.notify(f"Started running on pid: {os.getpid()}")
+
+        while True:
+            if not self.on:
+                self.notify("Shutting down")
+                break
+
+            # Check if message was received
+            if not self.messages.empty():
+                # Pass message to handler
+                message: Tuple[str, Optional[bool]] = self.messages.get()
+                self.__handle_message(message=message)
+
+        self.notify(f"Stopped running on pid: {os.getpid()}")
+
+    @logger.catch
+    def __handle_message(self, message: Tuple[str, bool]):
+        """Handles messages received from the queue."""
+
+        # Notify observers
+        self.notify(f"Message received: {message}")
+
+        signal: str = message[0]
+        result: Optional[Any] = None
+
+        if signal == "stop":
+            # Transition state to off
+            self.on = False
+
+        elif self.check_task(signal=signal):
+            # Signal is a task, attempt to perform it
+            should_wait: bool = message[1]
+
+            self.notify(f"Performing task: {signal} | Is Blocking: {should_wait}")
+
+            result = self.perform_task(signal=signal, wait=should_wait)
+
+            self.results.put(result) if result is not None else None
+            self.notify(f"Compiled result: {result}") if result is not None else None
+
+        else:
+            # Do nothing
+            pass

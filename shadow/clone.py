@@ -17,9 +17,6 @@ class ShadowClone:
 
         self.task: Optional[Tuple] = None
 
-        # Results from completed task
-        self.__result: Queue = Queue()
-
         # Stores results
         self.history: queue.Queue = Queue()
 
@@ -50,9 +47,9 @@ class ShadowClone:
             task_process.join()
 
         # Return result if any
-        if not self.__result.empty():
-            return self.__result.get()
+        return self.check_history()
 
+    @logger.catch
     def __run_task(self):
         """Performs assigned task"""
 
@@ -61,10 +58,7 @@ class ShadowClone:
         # Run the task and add the result to process queue
         result: Any = self.task[0](**self.task[1])
 
-        if result is not None:
-            self.__result.put(result)
-
-        # Stores ALL results
+        # Stores all results at time of execution
         self.history.put(result)
 
         logger.debug(f"Task finished with result: {result}")

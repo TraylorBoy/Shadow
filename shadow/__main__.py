@@ -1,13 +1,14 @@
 """Command line script for the Shadow package"""
 
-from time import sleep
-
 from loguru import logger
 
-from shadow.clone import ShadowClone
 from shadow.core import Shadow
 
 # TODO: Remove test code and add console Commands
+
+
+def say_hi():
+    print("Hi")
 
 
 @logger.catch
@@ -18,27 +19,17 @@ def main():
 
     shadow = Shadow()
 
-    shadowclone = ShadowClone()
-    shadowclone_two = ShadowClone()
+    shadowbot = shadow.make(name="TestBot")
+    shadowbot.add_task(signal="hi", task=say_hi)
 
-    def test_run():
-        sleep(5)
+    shadow.observe(bot=shadowbot)
 
-    shadowclone.assign(func=test_run)
-    shadowclone_two.assign(func=shadow.make, name="TestBot")
+    shadowbot.start()
 
-    shadowclone.perform()
-
-    shadowclone_three = ShadowClone()
-    shadowclone_three.assign(
-        func=shadow.observe, bot=shadowclone_two.perform(block=True)
-    )
-
-    shadowbot = shadowclone_two.perform()
-
-    shadowclone_three.perform(block=True)
-
-    print(shadowbot)
+    shadowbot.messages.put(("history", True))
+    hist = shadowbot.results.get()
+    logger.debug(f"History retrieved: {hist}")
+    shadowbot.stop()
 
 
 if __name__ == "__main__":

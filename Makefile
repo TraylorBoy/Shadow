@@ -12,8 +12,11 @@ test:
 
 clean:
 	rm -r shadow/logs
-	rm -r .pytest_cache
-	rm -r .mypy_cache
+	#rm -r .pytest_cache
+	#rm -r .mypy_cache
 
-report-missing:
+run:
+	python3 -m shadow
+
+missing:
 	pytest --cov --cov-report=term-missing
