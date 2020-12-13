@@ -20,13 +20,7 @@ class Shadow:
 
     """Interface for making ShadowBots and building the ShadowNetwork"""
 
-    def __init__(self):
-        """Instantiates sub-components"""
-
-        # TODO
-        self.network = None
-
-    def make(self, name: Optional[str] = None):
+    def build(self, name: Optional[str] = None):
         """Constructs ShadowBots with provided args"""
 
         # Create ShadowBot
@@ -34,8 +28,6 @@ class Shadow:
 
         # Build part
         shadowbot.rename(new_name=name)
-
-        logger.info(f"Constructed ShadowBot with name: {name}")
 
         # Return product
         return shadowbot
@@ -47,8 +39,6 @@ class Shadow:
 
         # Register observer to start receiving notifications
         bot.register(observer=observer)
-
-        logger.info(f"Observer registered for {bot.name}")
 
         return observer
 

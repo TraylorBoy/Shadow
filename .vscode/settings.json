@@ -1,4 +1,5 @@
 {
     "python.linting.enabled": false,
-    "python.pythonPath": "/Users/traylorboy/.local/share/virtualenvs/Shadow-9Kx4mZVo"
+    "python.pythonPath": "/Users/traylorboy/.local/share/virtualenvs/Shadow-9Kx4mZVo",
+    "python.formatting.provider": "black"
 }

@@ -1,57 +1,61 @@
-from time import sleep
-from typing import Callable, List
+import time
+
+import pytest
 
 from shadow.clone import ShadowClone
 
 
-def create_clone():
-
-    shadowclone: ShadowClone = ShadowClone()
-
-    return shadowclone
+@pytest.fixture
+def clone():
+    return ShadowClone()
 
 
-def shadow_clone_jutsu(summon_amount: int):
-
-    clones: List = []
-
-    shadowclone: ShadowClone = create_clone()
-
-    for _ in range(summon_amount):
-        clones.append(shadowclone.clone())
-
-    return clones
+def always_true():
+    return True
 
 
-def assign_task(task: Callable, **kwargs):
-
-    shadowclone = ShadowClone()
-
-    shadowclone.assign(func=task, **kwargs)
-
-    return shadowclone
+def sleep(sleep_for: int = 1):
+    time.sleep(sleep_for)
+    return True
 
 
-def test_init():
+def assign_always_true(clone):
 
-    assert create_clone().task is None
-
-
-def test_prototype():
-
-    shadow_clones = shadow_clone_jutsu(summon_amount=2)
-
-    assert len(shadow_clones) == 2
-    assert shadow_clones[0] is not shadow_clones[1]
+    clone.assign(func=always_true)
 
 
-def test_task():
-    def did_sleep(len: int):
-        sleep(len)
-        return True
+def assign_sleep(clone):
 
-    shadowclone: ShadowClone = assign_task(task=did_sleep, len=1)
+    func_args = {"sleep_for": 3}
 
-    assert shadowclone.task[0] is did_sleep
-    assert shadowclone.task[0](**shadowclone.task[1])
-    assert shadowclone.perform(block=True)
+    clone.assign(func=sleep, **func_args)
+
+
+def test_clone(clone):
+    assert clone.task is None
+    assert clone.history.empty()
+    assert clone.clone() is not clone
+
+
+def test_assign(clone):
+    prev_task = clone.task
+
+    assign_sleep(clone)
+    assert clone.task is not prev_task
+
+    new_task = clone.task
+
+    assign_always_true(clone)
+    assert clone.task is not new_task
+
+
+def test_perform(clone):
+    assign_always_true(clone)
+    assert clone.perform() is None
+    assert clone.unfinished() == 1
+    assert clone.check() is None
+    assert clone.check(wait=True)
+
+    assert clone.perform(block=True)
+    assert clone.unfinished() == 0
+    assert not clone.wait()

@@ -20,3 +20,13 @@ run:
 
 missing:
 	pytest --cov --cov-report=term-missing
+
+pre:
+	git add .
+	pre-commit
+
+f-commit:
+	git commit --no-verify
+
+f-push:
+	git push --no-verify

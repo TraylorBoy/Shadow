@@ -1,46 +1,27 @@
-from typing import Optional
+import pytest
 
-from shadow.bot import ShadowBot
 from shadow.core import Shadow
-from shadow.observer import ShadowObserver
-
-shadow: Shadow = Shadow()
 
 
-def make_shadowbot(name: Optional[str] = None):
-
-    shadowbot: ShadowBot = shadow.make(name=name)
-
-    return shadowbot
+@pytest.fixture
+def core():
+    return {"shadow": Shadow(), "bot": Shadow().build()}
 
 
-def observe_shadowbot(bot: ShadowBot):
-
-    observer: ShadowObserver = shadow.observe(bot=bot)
-
-    return observer
+@pytest.fixture
+def observer(core):
+    return core["shadow"].observe(bot=core["bot"])
 
 
-def test_make():
+def test_build(core):
+    assert core["bot"].name is None
+    assert core["shadow"].build(name="TestBot").name == "TestBot"
 
-    assert make_shadowbot().name is None
-    assert make_shadowbot(name="TestBot").name == "TestBot"
+
+def test_observe(core, observer):
+    assert observer in core["bot"].observers
 
 
-def test_observe():
-
-    shadowbot: ShadowBot = make_shadowbot("TestBot")
-    observer: ShadowObserver = observe_shadowbot(bot=shadowbot)
-
-    assert observer in shadowbot.observers
-
-    shadowbot.start()
-    shadowbot.stop()
-
-    kwargs = {"msg": "test"}
-
-    shadowbot.notify(**kwargs)
-
-    shadow.unobserve(bot=shadowbot, observer=observer)
-
-    assert observer not in shadowbot.observers
+def test_unobserve(core, observer):
+    core["shadow"].unobserve(bot=core["bot"], observer=observer)
+    assert observer not in core["bot"].observers

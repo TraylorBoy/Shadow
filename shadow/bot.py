@@ -46,8 +46,6 @@ class ShadowBot(Observable):
 
         self.name = new_name
 
-        logger.debug(f"New name set: {self.name}")
-
     def running(self):
         """Checks if process is started and state is on"""
 
@@ -127,7 +125,7 @@ class ShadowBot(Observable):
             if signal in skip_list:
                 continue
 
-            hist[signal] = clone.check_history()
+            hist[signal] = clone.check()
 
         return hist
 
