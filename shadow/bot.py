@@ -2,7 +2,8 @@
 
 import os
 from multiprocessing import Process, Queue
-from typing import Any, Callable, Dict, Optional, Tuple
+from threading import Thread
+from typing import Any, Dict, Optional, Tuple
 
 from loguru import logger
 
@@ -17,53 +18,51 @@ class ShadowBot(Observable):
     def __init__(self):
         """Sets the default properties"""
 
-        self.__setup()
-
-        self.__process: Process = Process(target=self.run)
-        self.messages: Queue = Queue()
-        self.results: Queue = Queue()
-
-    def __setup(self):
-        """Initializes ShadowBot"""
-
         # Bot ID
         self.name: Optional[str] = None
 
-        # Create task workers and add default tasks
-        self.__shadow_clone_jutsu()
+        # Task workers
+        self.clones: Dict[str, ShadowClone] = {}
 
         # State
         self.on = False
 
-    def __shadow_clone_jutsu(self):
-        """Creates worker dict and instantiates initial workers"""
+        # Bot runs on a seperate process
+        self.__process: Process = Process(target=self.run)
 
-        self.clones: Dict[str, ShadowClone] = {}
-        self.add_task(signal="history", task=self.history)
+        # Communication
+        self.messages: Queue = Queue()
+        self.results: Queue = Queue()
+
+    def setup(self, name: str, tasks: Optional[Dict[str, Tuple[Any]]] = None):
+        """Initializes ShadowBot"""
+
+        self.rename(new_name=name)
+
+        if tasks is not None:
+            for _signal, _task in tasks.items():
+                self.add_task(signal=_signal, task=_task)
 
     def rename(self, new_name: Optional[str] = None):
         """Name setter"""
 
         self.name = new_name
 
-    def running(self):
-        """Checks if process is started and state is on"""
-
-        turned_on: bool = self.on and self.__process.is_alive()
-
-        return turned_on
-
     def add_task(
-        self, signal: str, task: Callable, task_args: Optional[Dict[str, Any]] = {}
+        self, signal: str, task: Tuple[Any]
     ):
         """Delegates task to a ShadowClone which can be called via signal"""
 
         # Shadow Clone Jutsu
-        if signal not in self.clones.keys():
-            # Create a clone and assign the task
+        if not self.check_task(signal=signal):
+
             clone: ShadowClone = ShadowClone()
 
-            clone.assign(func=task, **task_args)  # type: ignore
+            if len(task) > 1:
+                # Task came with args
+                clone.assign(func=task[0], **task[1])  # type: ignore
+            else:
+                clone.assign(func=task[0]) # type: ignore
 
             # Clone performs task when signal is called
             self.clones[signal] = clone
@@ -80,13 +79,25 @@ class ShadowBot(Observable):
         return signal in self.clones.keys()
 
     def perform_task(self, signal: str, wait: bool = False):
-        """Performs the task attached to the signal and returns the result"""
-
-        shadowclone: ShadowClone = self.clones[signal]
+        """Performs the task attached to the signal and returns the result if waited on or returns the task worker to manage the task"""
 
         result: Optional[Any] = None
 
-        result = shadowclone.perform(block=True) if wait else shadowclone.perform()
+        if wait:
+
+            result = self.clones[signal].perform(block=True)
+            return result
+
+        else:
+            self.clones[signal].perform()
+
+    def get_result(self, signal: str):
+        """Waits for the result for the task that was performed"""
+
+        result: Optional[Any] = None
+
+        # Grab last result from clone history if any
+        result = self.clones[signal].check(wait=True)
 
         return result
 
@@ -114,20 +125,6 @@ class ShadowBot(Observable):
 
             # Wait for process to finish
             self.__process.join()
-
-    def history(self):
-        """Retrieves all results from each clone history"""
-
-        hist: Dict[str, Optional[Any]] = {}
-        skip_list = ["history"]
-
-        for signal, clone in self.clones.items():
-            if signal in skip_list:
-                continue
-
-            hist[signal] = clone.check()
-
-        return hist
 
     @logger.catch
     def run(self):

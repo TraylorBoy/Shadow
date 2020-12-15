@@ -26,7 +26,7 @@ def assign_always_true(clone):
 
 def assign_sleep(clone):
 
-    func_args = {"sleep_for": 3}
+    func_args = {"sleep_for": 1}
 
     clone.assign(func=sleep, **func_args)
 
@@ -50,12 +50,11 @@ def test_assign(clone):
 
 
 def test_perform(clone):
-    assign_always_true(clone)
-    assert clone.perform() is None
-    assert clone.unfinished() == 1
+    assign_sleep(clone)
+
+    clone.perform()
     assert clone.check() is None
     assert clone.check(wait=True)
 
     assert clone.perform(block=True)
-    assert clone.unfinished() == 0
-    assert not clone.wait()
+    assert clone.check() is None

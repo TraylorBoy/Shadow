@@ -2,9 +2,10 @@
 
 import os
 import queue
+
 from copy import copy
-from threading import Lock, Thread
-from typing import Any, Callable, List, Optional, Tuple
+from threading import Thread
+from typing import Any, Callable, Optional, Tuple
 
 from loguru import logger
 
@@ -18,11 +19,31 @@ class ShadowClone:
 
         # Keeps track of tasks
         self.task: Optional[Tuple] = None
-        self.__threads: List[Thread] = []
+        self.__thread: Optional[Thread] = None
 
         # Stores results
         self.history: queue.Queue = queue.Queue()
-        self.__hist_lock: Lock = Lock()
+
+    @logger.catch
+    def __run_task(self):
+        """Performs assigned task"""
+
+        logger.debug(f"Running task {self.task} on pid: {os.getpid()}")
+
+        # Run the task and add the result to process queue
+        if len(self.task) > 1:
+            result: Any = self.task[0](**self.task[1])
+        else:
+            result: Any = self.task[0]()
+
+        # Update result history
+        if result is not None:
+            logger.debug("Updating history")
+
+            # Store result
+            self.history.put(result)
+
+            logger.debug(f"Task finished with result: {result}")
 
     def clone(self):
         """Prototype method for copying ShadowClones"""
@@ -33,10 +54,10 @@ class ShadowClone:
         """Assigns a new task"""
 
         # Assign function and function args
-        self.task = (func, kwargs)
-
-        # Clear threads
-        self.clear(all=True)
+        if kwargs is not None:
+            self.task = (func, kwargs)
+        else:
+            self.task = func
 
     def perform(self, block: bool = False):
         """Performs assigned task on a seperate thread, if block then it waits until thread is finished executing"""
@@ -52,83 +73,23 @@ class ShadowClone:
             logger.debug("Waiting for result")
             task_d.join()
 
+            # Return result
+            return self.check()
+
         else:
-            # Store thread
-            self.__threads.append(task_d)
-
-        # Return result if any
-        return self.check()
-
-    @logger.catch
-    def __run_task(self):
-        """Performs assigned task"""
-
-        logger.debug(f"Running task {self.task} on pid: {os.getpid()}")
-
-        # Run the task and add the result to process queue
-        result: Any = self.task[0](**self.task[1])
-
-        # Update result history
-        if result is not None:
-            # Lock thread for update
-            with self.__hist_lock:
-                logger.debug("Updating history")
-
-                # Store result
-                self.history.put(result)
-
-            logger.debug(f"Task finished with result: {result}")
+            # Store thread and allow ShadowBot to handle it
+            self.__thread = task_d
 
     def check(self, wait: bool = False):
         """Gets result from last completed task"""
 
-        self.wait() if wait else None
+        if wait and self.__thread.is_alive():
+            logger.debug("Waiting for result")
+            self.__thread.join()
+            self.__thread = None
 
         if not self.history.empty():
             return self.history.get()
 
+        logger.debug("No result found")
         return None
-
-    def unfinished(self):
-        """Return number of unfinished tasks"""
-
-        unfinished: int = 0
-
-        if len(self.__threads) > 0:
-            for thread in self.__threads:
-                if thread.is_alive():
-                    unfinished += 1
-                else:
-                    # Thread finished, remove it
-                    self.clear(t=thread)  # pragma: no cover
-
-        return unfinished
-
-    def wait(self):
-        """Waits for unfinished tasks to complete"""
-
-        if self.unfinished() > 0:
-            for thread in self.__threads:
-                if thread.is_alive():
-                    # Wait for it to finish executing
-                    logger.debug("Waiting for thread to finish")
-                    thread.join()
-                    self.clear(t=thread)
-
-            return True
-
-        return False
-
-    def clear(self, t: Optional[Thread] = None, all: bool = False):
-        """Clears one or all threads in thread list that were not waited on"""
-
-        if all:
-            self.__threads = []
-            return True
-        elif t in self.__threads:
-            for i in range(len(self.__threads)):
-                if t is self.__threads[i]:
-                    logger.debug("Deleting thread")
-                    del self.__threads[i]
-
-        return False

@@ -1,4 +1,4 @@
-"""Entry point to the Shadow project"""
+"""Facade for interacting with the application"""
 
 from datetime import datetime
 from typing import Optional
@@ -18,18 +18,14 @@ logger.add(
 
 class Shadow:
 
-    """Interface for making ShadowBots and building the ShadowNetwork"""
+    """Entry point"""
 
     def build(self, name: Optional[str] = None):
-        """Constructs ShadowBots with provided args"""
+        """Constructs ShadowBots with provided name"""
 
-        # Create ShadowBot
         shadowbot: ShadowBot = ShadowBot()
-
-        # Build part
         shadowbot.rename(new_name=name)
 
-        # Return product
         return shadowbot
 
     def observe(self, bot: ShadowBot):
@@ -47,4 +43,4 @@ class Shadow:
 
         bot.deregister(observer=observer)
 
-        logger.info(f"Observer deregistered for {bot.name}")
+        return observer

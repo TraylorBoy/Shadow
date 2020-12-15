@@ -1,4 +1,5 @@
 """Command line script for the Shadow package"""
+
 import time
 
 from loguru import logger
