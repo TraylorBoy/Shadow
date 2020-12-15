@@ -2,14 +2,12 @@
 
 import os
 from multiprocessing import Process, Queue
-from threading import Thread
 from typing import Any, Dict, Optional, Tuple
 
 from loguru import logger
 
 from shadow.clone import ShadowClone
 from shadow.observer import Observable
-
 
 class ShadowBot(Observable):
 
@@ -24,29 +22,12 @@ class ShadowBot(Observable):
         # Task workers
         self.clones: Dict[str, ShadowClone] = {}
 
-        # State
-        self.on = False
-
         # Bot runs on a seperate process
-        self.__process: Process = Process(target=self.run)
+        self.soul: Process = Process(target=self.__run)
 
         # Communication
         self.messages: Queue = Queue()
         self.results: Queue = Queue()
-
-    def setup(self, name: str, tasks: Optional[Dict[str, Tuple[Any]]] = None):
-        """Initializes ShadowBot"""
-
-        self.rename(new_name=name)
-
-        if tasks is not None:
-            for _signal, _task in tasks.items():
-                self.add_task(signal=_signal, task=_task)
-
-    def rename(self, new_name: Optional[str] = None):
-        """Name setter"""
-
-        self.name = new_name
 
     def add_task(
         self, signal: str, task: Tuple[Any]
@@ -101,76 +82,32 @@ class ShadowBot(Observable):
 
         return result
 
-    def start(self):
-        """ShadowBot starts listening for messages on a seperate process"""
-
-        if not self.running():
-
-            # Transition state
-            self.on = True
-
-            # Notify observers of state change
-            self.notify("Starting up")
-
-            # Run the process
-            self.__process.start()
-
-    def stop(self):
-        """Stops the running ShadowBot process"""
-
-        if self.running():
-
-            # Send stop message to process
-            self.messages.put(("stop", True))
-
-            # Wait for process to finish
-            self.__process.join()
-
     @logger.catch
-    def run(self):
+    def __run(self):
         """Waits till it receives a signal then performs task associated with signal"""
 
-        # Notify observers
         self.notify(f"Started running on pid: {os.getpid()}")
 
         while True:
-            if not self.on:
-                self.notify("Shutting down")
-                break
-
-            # Check if message was received
             if not self.messages.empty():
-                # Pass message to handler
+
                 message: Tuple[str, Optional[bool]] = self.messages.get()
-                self.__handle_message(message=message)
+
+                if message[0] == "stop":
+                    self.notify("Shutting down")
+                    break
+                elif message[0] == "result":
+                    self.results.put(self.get_result(signal=message[1]))
+
+                elif self.check_task(signal=message[0]):
+                    if message[1]:
+                        # Task is blocking
+                        # Wait for result
+                        self.results.put(self.perform_task(signal=message[0], wait=True))
+                    else:
+                        self.perform_task(signal=message[0])
+                else:
+                    self.notify("Invalid message received")
 
         self.notify(f"Stopped running on pid: {os.getpid()}")
 
-    @logger.catch
-    def __handle_message(self, message: Tuple[str, bool]):
-        """Handles messages received from the queue."""
-
-        # Notify observers
-        self.notify(f"Message received: {message}")
-
-        signal: str = message[0]
-        result: Optional[Any] = None
-
-        if signal == "stop":
-            # Transition state to off
-            self.on = False
-
-        elif self.check_task(signal=signal):
-            # Signal is a task, attempt to perform it
-            should_wait: bool = message[1]
-
-            self.notify(f"Performing task: {signal} | Is Blocking: {should_wait}")
-
-            result = self.perform_task(signal=signal, wait=should_wait)
-
-            self.results.put(result) if result is not None else None
-            self.notify(f"Compiled result: {result}") if result is not None else None
-
-        else:
-            # Do nothing
-            pass

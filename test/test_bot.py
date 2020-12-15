@@ -14,7 +14,6 @@ def bot():
 
 def test_setup(bot):
     assert bot.name is "TestBot"
-    assert not bot.on
     assert bot.messages.empty()
     assert bot.results.empty()
 
@@ -25,5 +24,10 @@ def test_setup(bot):
     bot.perform_task(signal="test")
 
     assert bot.get_result(signal="test")
+
+def test_run(bot):
+    assert not bot.alive()
+    bot.start()
+    assert bot.alive()
 
 

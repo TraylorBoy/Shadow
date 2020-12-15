@@ -6,6 +6,7 @@ from typing import Optional
 from loguru import logger
 
 from shadow.bot import ShadowBot
+from shadow.proxy import ShadowProxy
 from shadow.observer import ShadowObserver
 
 # Setup log file
@@ -21,26 +22,10 @@ class Shadow:
     """Entry point"""
 
     def build(self, name: Optional[str] = None):
-        """Constructs ShadowBots with provided name"""
+        """Constructs ShadowBots and returns a proxy for interacting with them"""
 
-        shadowbot: ShadowBot = ShadowBot()
-        shadowbot.rename(new_name=name)
+        proxy: ShadowProxy = ShadowProxy()
+        proxy.bot.name = name
 
-        return shadowbot
+        return proxy
 
-    def observe(self, bot: ShadowBot):
-        """Creates and registers a ShadowObserver"""
-
-        observer: ShadowObserver = ShadowObserver()
-
-        # Register observer to start receiving notifications
-        bot.register(observer=observer)
-
-        return observer
-
-    def unobserve(self, bot: ShadowBot, observer: ShadowObserver):
-        """Deregisters ShadowObserver from ShadowBot notification list"""
-
-        bot.deregister(observer=observer)
-
-        return observer
