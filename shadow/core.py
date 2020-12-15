@@ -5,9 +5,9 @@ from typing import Optional
 
 from loguru import logger
 
-from shadow.bot import ShadowBot
 from shadow.proxy import ShadowProxy
-from shadow.observer import ShadowObserver
+
+from typing import Any, Dict, Optional, Tuple
 
 # Setup log file
 logger.add(
@@ -21,11 +21,26 @@ class Shadow:
 
     """Entry point"""
 
-    def build(self, name: Optional[str] = None):
-        """Constructs ShadowBots and returns a proxy for interacting with them"""
+    def build(self, name: Optional[str] = None, tasks: Optional[Dict[str, Tuple[Any]]] = None):
+        """Creates a proxy for interacting with ShadowBot after setting it up"""
 
         proxy: ShadowProxy = ShadowProxy()
-        proxy.bot.name = name
+
+        proxy.setup(name=name, tasks=tasks)
 
         return proxy
 
+    def edit(self, proxy: ShadowProxy, signal: str = None, remove: bool = False, task: Optional[Tuple[Any]] = None, name: Optional[str] = None):
+        """Edits constructed ShadowBot attached to proxy"""
+
+        if name is not None:
+            proxy.bot.name = name
+
+        elif signal is not None:
+            if remove:
+                proxy.bot.remove_task(signal=signal)
+
+            else:
+                proxy.bot.add_task(signal=signal, task=task)
+
+            return proxy
