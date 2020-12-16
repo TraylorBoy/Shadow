@@ -26,7 +26,7 @@ class Shadow:
 
         proxy: ShadowProxy = ShadowProxy()
 
-        proxy.setup(name=name, tasks=tasks)
+        proxy = self.setup(proxy=proxy, name=name, tasks=tasks)
 
         return proxy
 
@@ -44,3 +44,14 @@ class Shadow:
                 proxy.bot.add_task(signal=signal, task=task)
 
             return proxy
+
+    def setup(self, proxy: ShadowProxy, name: str, tasks: Optional[Dict[str, Tuple[Any]]] = None):
+        """Sets ShadowBot properties and tasks"""
+
+        proxy.bot.name = name
+
+        if tasks is not None:
+            for _signal, _task in tasks.items():
+                proxy.bot.add_task(signal=_signal, task=_task)
+
+        return proxy

@@ -2,18 +2,35 @@ import pytest
 
 from shadow.core import Shadow
 
+def test_task():
+    return True
 
 @pytest.fixture
 def core():
-    return {"shadow": Shadow(), "proxy": Shadow().build()}
+    return Shadow()
 
 @pytest.fixture
 def proxy(core):
-    return core["shadow"].build(name="TestBot")
+    return core.build(name="TestBot")
 
 def test_build(core, proxy):
-    assert core["proxy"].bot.name is None
+    assert core.build().bot.name is None
     assert proxy.bot.name == "TestBot"
-    core["shadow"].edit(proxy=proxy, name="Tea")
+
+def test_edit(core, proxy):
+    core.edit(proxy=proxy, name="Tea")
     assert proxy.bot.name == "Tea"
+
+    core.edit(proxy=proxy, signal="test", task=(test_task,))
+    assert "test" in proxy.bot.clones.keys()
+
+    core.edit(proxy=proxy, signal="test", remove=True)
+    assert "test" not in proxy.bot.clones.keys()
+
+def test_setup(core, proxy):
+    core.setup(proxy=proxy, name="TestBot", tasks={"test": (test_task,)})
+
+    assert proxy.bot.name == "TestBot"
+    assert "test" in proxy.bot.clones.keys()
+
 

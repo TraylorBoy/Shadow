@@ -12,10 +12,6 @@ class IShadowProxy:
     """Proxy Interface for ShadowBot"""
 
     @abstractmethod
-    def setup(self, name: str, tasks: Optional[Dict[str, Tuple[Any]]] = None):
-        raise NotImplementedError()
-
-    @abstractmethod
     def send(self, signal: str, **kwargs):
         raise NotImplementedError()
 
@@ -48,15 +44,6 @@ class ShadowProxy(IShadowProxy):
 
         self.bot: ShadowBot = ShadowBot()
         self.observer: Optional[ShadowObserver] = None
-
-    def setup(self, name: str, tasks: Optional[Dict[str, Tuple[Any]]] = None):
-        """Sets ShadowBot properties and tasks"""
-
-        self.bot.name = name
-
-        if tasks is not None:
-            for _signal, _task in tasks.items():
-                self.bot.add_task(signal=_signal, task=_task)
 
     def send(self, signal: str, **kwargs):
         """Sends a signal to the proccess ShadowBot is running on"""

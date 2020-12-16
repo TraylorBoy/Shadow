@@ -93,7 +93,7 @@ class ShadowBot(Observable):
 
                 message: Tuple[str, Optional[bool]] = self.messages.get()
 
-                if message[0] == "stop":
+                if message[0] == "stop": # pragma: no cover
                     self.notify("Shutting down")
                     break
                 elif message[0] == "result":

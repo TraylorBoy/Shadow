@@ -31,10 +31,10 @@ class ShadowClone:
         logger.debug(f"Running task {self.task} on pid: {os.getpid()}")
 
         # Run the task and add the result to process queue
-        if len(self.task) > 1:
+        if self.task[1] is not None:
             result: Any = self.task[0](**self.task[1])
         else:
-            result: Any = self.task[0]()
+            result: Any = self.task[0]() # pragma: no cover
 
         # Update result history
         if result is not None:
@@ -54,10 +54,8 @@ class ShadowClone:
         """Assigns a new task"""
 
         # Assign function and function args
-        if kwargs is not None:
-            self.task = (func, kwargs)
-        else:
-            self.task = func
+        self.task = (func, kwargs)
+
 
     def perform(self, block: bool = False):
         """Performs assigned task on a seperate thread, if block then it waits until thread is finished executing"""
