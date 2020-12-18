@@ -26,13 +26,21 @@ class Observable:
     observers: List[ShadowObserver] = []
 
     def register(self, observer: ShadowObserver):
-        """Adds observer to notification list"""
+        """Adds observer to observer list
+
+        Args:
+            observer (ShadowObserver): Observer to add to observer list
+        """
 
         if observer not in self.observers:  # pragma: no cover
             self.observers.append(observer)
 
     def deregister(self, observer: ShadowObserver):
-        """Removes observer from notification list"""
+        """Removes observer from observer list
+
+        Args:
+            observer (ShadowObserver): Observer to remove from observer list
+        """
 
         if observer in self.observers:  # pragma: no cover
             self.observers.remove(observer)

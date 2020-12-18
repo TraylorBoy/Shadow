@@ -1,13 +1,11 @@
-"""Facade for interacting with the application"""
+"""Interface for interacting with the application"""
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional, Tuple
 
 from loguru import logger
 
 from shadow.proxy import ShadowProxy
-
-from typing import Any, Dict, Optional, Tuple
 
 # Setup log file
 logger.add(
@@ -19,10 +17,20 @@ logger.add(
 
 class Shadow:
 
-    """Entry point"""
+    """Application entry point"""
 
-    def build(self, name: Optional[str] = None, tasks: Optional[Dict[str, Tuple[Any]]] = None):
-        """Creates a proxy for interacting with ShadowBot after setting it up"""
+    def build(
+        self, name: Optional[str] = None, tasks: Optional[Dict[str, Tuple[Any]]] = None
+    ):
+        """Creates a proxy for interacting with ShadowBot after setting it up
+
+        Args:
+            name (Optional[str], optional): Name of the ShadowBot. Defaults to None.
+            tasks (Optional[Dict[str, Tuple[Any]]], optional): Functions for the ShadowBot to call by signal. Defaults to None.
+
+        Returns:
+            [ShadowProxy]: Instansiated proxy object for the constructed ShadowBot
+        """
 
         proxy: ShadowProxy = ShadowProxy()
 
@@ -30,8 +38,26 @@ class Shadow:
 
         return proxy
 
-    def edit(self, proxy: ShadowProxy, signal: str = None, remove: bool = False, task: Optional[Tuple[Any]] = None, name: Optional[str] = None):
-        """Edits constructed ShadowBot attached to proxy"""
+    def edit(
+        self,
+        proxy: ShadowProxy,
+        signal: str = None,
+        remove: bool = False,
+        task: Optional[Tuple[Any]] = None,
+        name: Optional[str] = None,
+    ):
+        """Edits constructed ShadowBot attached to the given proxy
+
+        Args:
+            proxy (ShadowProxy): Proxy to the ShadowBot that is being configured
+            signal (str, optional): Signal to add to the ShadowBot. Defaults to None.
+            remove (bool, optional): Remove the signal being passed. Defaults to False.
+            task (Optional[Tuple[Any]], optional): Add the task with the signal to the ShadowBot. Defaults to None.
+            name (Optional[str], optional): Change the name of the ShadowBot. Defaults to None.
+
+        Returns:
+            [ShadowProxy]: Instansiated proxy object with the reconfigured ShadowBot
+        """
 
         if name is not None:
             proxy.bot.name = name
@@ -41,14 +67,31 @@ class Shadow:
                 proxy.bot.remove_task(signal=signal)
 
             else:
-                proxy.bot.add_task(signal=signal, task=task)
+                proxy.bot.add_task(
+                    signal=signal, task=task
+                ) if task is not None else None
 
             return proxy
 
-    def setup(self, proxy: ShadowProxy, name: str, tasks: Optional[Dict[str, Tuple[Any]]] = None):
-        """Sets ShadowBot properties and tasks"""
+    def setup(
+        self,
+        proxy: ShadowProxy,
+        name: Optional[str] = None,
+        tasks: Optional[Dict[str, Tuple[Any]]] = None,
+    ):
+        """Configures ShadowBot attached to the given proxy
 
-        proxy.bot.name = name
+        Args:
+            proxy (ShadowProxy): Proxy to the ShadowBot that is being setup
+            name (Optional[str], optional): Name to set for the ShadowBot
+            tasks (Optional[Dict[str, Tuple[Any]]], optional): Functions for the ShadowBot to call by signal. Defaults to None.
+
+        Returns:
+            [ShadowProxy]: Instansiated proxy object with the reconfigured ShadowBot
+        """
+
+        if name is not None:
+            proxy.bot.name = name
 
         if tasks is not None:
             for _signal, _task in tasks.items():

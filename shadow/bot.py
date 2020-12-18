@@ -15,7 +15,7 @@ class ShadowBot(Observable):
     """Base bot class"""
 
     def __init__(self):
-        """Sets the default properties"""
+        """Set the initial state and properties of the bot"""
 
         # Bot ID
         self.name: Optional[str] = None
@@ -53,9 +53,10 @@ class ShadowBot(Observable):
                     if message[1]:
                         # Task is blocking
                         # Wait for result
-                        self.results.put(
-                            self.perform_task(signal=message[0], wait=True)
+                        result: Optional[Any] = self.perform_task(
+                            signal=message[0], wait=True
                         )
+                        self.results.put(result) if result is not None else None
                     else:
                         self.perform_task(signal=message[0])
                 else:
@@ -64,7 +65,12 @@ class ShadowBot(Observable):
         self.notify(f"Stopped running on pid: {os.getpid()}")
 
     def add_task(self, signal: str, task: Tuple[Any]):
-        """Delegates task to a ShadowClone which can be called via signal"""
+        """Delegates task to a ShadowClone which can be called via signal
+
+        Args:
+            signal (str): Signal that will be called in order to run task
+            task (Tuple[Any]): Task to be executed when signal is received
+        """
 
         # Shadow Clone Jutsu
         if not self.check_task(signal=signal):
@@ -81,36 +87,54 @@ class ShadowBot(Observable):
             self.clones[signal] = clone
 
     def remove_task(self, signal: str):
-        """Removes clone via the signal it is attached to"""
+        """Removes clone via the signal it is attached to
+
+        Args:
+            signal (str): Signal that will be called in order to run task
+        """
 
         if signal in self.clones.keys():
             del self.clones[signal]
 
     def check_task(self, signal: str):
-        """Returns true if there is a task attached to signal"""
+        """Returns true if there is a task attached to signal
+
+        Args:
+            signal (str): Signal that will be called in order to run task
+
+        Returns:
+            [type]: [description]
+        """
 
         return signal in self.clones.keys()
 
     def perform_task(self, signal: str, wait: bool = False):
-        """Performs the task attached to the signal and returns the result if waited on or returns the task worker to manage the task"""
+        """Performs the task attached to the signal and returns the result if waited on or returns the task worker to manage the task
 
-        result: Optional[Any] = None
+        Args:
+            signal (str): Signal that will be called in order to run task
+            wait (bool, optional): Wait for task to finish executing before continuing. Defaults to False.
+
+        Returns:
+            [Any]: Result if wait was set to True and task returns a result that is not None
+        """
 
         if wait:
-
-            result = self.clones[signal].perform(block=True)
-            return result
+            return self.clones[signal].perform(block=True)
 
         else:
             self.clones[signal].perform()
 
     def get_result(self, signal: str):
-        """Waits for the result for the task that was performed"""
+        """Waits for the result for the task that was performed
 
-        result: Optional[Any] = None
+        Args:
+            signal (str): Signal that will be called in order to run task
+
+        Returns:
+            [Any]: Result if wait was set to True and task returns a result that is not None
+        """
 
         if self.check_task(signal=signal):
             # Grab last result from clone history if any
-            result = self.clones[signal].check(wait=True)
-
-        return result
+            return self.clones[signal].check(wait=True)
