@@ -8,6 +8,7 @@ python_version = "3.7"
 
 [packages]
 loguru = "*"
+menu = "*"
 
 [dev-packages]
 black = "==20.8b1"
@@ -17,3 +18,5 @@ mypy = "*"
 pre-commit = "*"
 pytest = "*"
 pytest-cov = "*"
+pymemcache = "*"
+shell = "*"

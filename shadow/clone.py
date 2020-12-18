@@ -1,119 +1,36 @@
-"""Worker class that performs tasks on a seperate process"""
+"""Task Worker"""
 
 import os
-import queue
-from copy import copy
-from threading import Lock, Thread
-from typing import Any, Callable, Optional, Tuple
+from functools import partial
+from threading import Lock
+from typing import Any, Optional
 
 from loguru import logger
 
 
-class ShadowClone:
+class ShadowClone(object):
 
-    """Task worker"""
+    """Slave class for perfoming tasks on seperate threads for the ShadowBot instance"""
 
-    def __init__(self):
-        """Set initial state and properties"""
+    def __init__(self, master: object, name: str, task: partial):
+        # Todo: Docstring
 
-        # Keeps track of tasks
-        self.task: Optional[Tuple] = None
-        self.__thread: Optional[Thread] = None
-        self.__thread_lock: Lock = Lock()
-
-        # Stores results
-        self.history: queue.Queue = queue.Queue()
+        self._master: object = master
+        self._name: str = name
+        self._task: partial = task
 
     @logger.catch
-    def __run_task(self):
-        """Method runs on a seperate thread performing assigned task"""
+    def perform(self):
+        # Todo: Docstring
 
-        logger.debug(f"Running task {self.task} on pid: {os.getpid()}")
+        self._master.bug(
+            f"Performing task: {self._name} - {self._task} on pid: {os.getpid()}"
+        )
 
-        # Run the task and add the result to process queue
-        if self.task[1] is not None:
-            result: Any = self.task[0](**self.task[1])
-        else:
-            result: Any = self.task[0]()  # pragma: no cover
+        result: Optional[Any] = self._task()
 
-        # Update result history
-        if result is not None:
-            with self.__thread_lock:
-                logger.debug("Updating history")
+        with Lock():
+            self._master.bug(f"{self._name} - Sending result to master")
+            self._master.results.put((self._name, result))
 
-                # Store result
-                self.history.put(result)
-
-            logger.debug(f"Task finished with result: {result}")
-
-    def clone(self):
-        """Prototype method for copying ShadowClones
-
-        Returns:
-            [ShadowClone]: Copy of the instansiated ShadowClone object
-        """
-
-        return copy(self)
-
-    def assign(self, func: Callable, **kwargs):
-        """Assigns a new task to the ShadowClone
-
-        Args:
-            func (Callable): Task to assign
-        """
-
-        # Assign function and function args
-        self.task = (func, kwargs)
-
-    def perform(self, block: bool = False):
-        """Performs assigned task on a seperate thread
-
-        Args:
-            block (bool, optional): Waits until thread is finished executing if set to True. Defaults to False.
-
-        Returns:
-            [Any]: Result if block was set to True and task returns a result that is not None
-        """
-
-        # Create a new thread to run the task on
-        # Make it a background thread
-        task_d: Thread = Thread(target=self.__run_task, daemon=True)
-
-        # Start the daemon and wait for it to finish if block is set to True
-        task_d.start()
-
-        if block:
-            logger.debug("Waiting for result")
-            task_d.join()
-
-            result: Optional[Any] = self.check()
-
-            if result is not None:
-                return result
-
-        else:
-            # Store thread and allow ShadowBot to handle it
-            self.__thread = task_d
-
-    def check(self, wait: bool = False):
-        """Gets result from last completed task
-
-        Args:
-            wait (bool, optional): Waits for current task to complete. Defaults to False.
-
-        Returns:
-            [Any]: Result of task completed if result is not None
-        """
-
-        if wait and self.__thread is not None and self.__thread.is_alive():
-            logger.debug("Waiting for result")
-            self.__thread.join()
-
-        if self.__thread is not None and not self.__thread.is_alive():
-            self.__thread = None
-
-        if not self.history.empty():
-            logger.debug("Result found")
-            return self.history.get()
-
-        logger.debug("No result found")
+        self._master.bug(f"{self._name} - Result sent to master: {result}")

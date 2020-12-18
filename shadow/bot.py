@@ -1,140 +1,200 @@
-"""Automated task runner"""
+"""Task Manager"""
 
-import os
+from datetime import datetime
 from multiprocessing import Process, Queue
-from typing import Any, Dict, Optional, Tuple
+from threading import Thread
+from typing import Any, Dict, Optional
 
 from loguru import logger
 
 from shadow.clone import ShadowClone
 from shadow.observer import Observable
 
+# Setup log file
+logger.add(
+    f"shadow/logs/{datetime.now().month}_{datetime.now().day}_{datetime.now().year}.log",
+    rotation="500 MB",
+    enqueue=True,
+)
 
-class ShadowBot(Observable):
 
-    """Base bot class"""
+class ShadowBot(Observable, object):
 
-    def __init__(self):
-        """Set the initial state and properties of the bot"""
+    """Master class for running tasks performed by ShadowClones (slaves)"""
 
-        # Bot ID
-        self.name: Optional[str] = None
+    def __repr__(self):
+        """Returns a string representation of the ShadowBot"""
 
-        # Task workers
-        self.clones: Dict[str, ShadowClone] = {}
+        tasks: str = ""
 
-        # Bot runs on a seperate process
-        self.soul: Process = Process(target=self.__run)
+        for signal, clone in self.clones.items():
+            tasks += f"{signal} - {clone}\n"
 
-        # Communication
-        self.messages: Queue = Queue()
+        return f"""
+            Name: {self.id}
+
+            Tasks
+            -----
+            {tasks}
+        """
+
+    def __init__(self, name: str, shadow_task: object):
+        # Todo: Docstring
+
+        self.id: str = name
+        self.clones: Dict[str, Dict[str, Optional[object]]] = {}
+        self.history: Dict[str, Optional[Any]] = {}
+
+        for signal, _partial in shadow_task.tasks.items():
+            # Create new clone for each task
+            self.clones[signal] = {
+                "slave": ShadowClone(master=self, name=signal, task=_partial),
+                "soul": None,
+            }
+
+        # Run task compiler
         self.results: Queue = Queue()
 
-    @logger.catch
-    def __run(self):
-        """Waits till it receives a signal then performs task associated with signal"""
+        self.clones["compile"] = {
+            "slave": ShadowClone(master=self, name="compile", task=self.__compile),
+            "stop": False,
+            "soul": None,
+        }
 
-        self.notify(f"Started running on pid: {os.getpid()}")
+        self.perform(signal="compile")
+
+        # Setup process
+        self.requests: Queue = Queue()
+        self.responses: Queue = Queue()
+        self.soul: Process = Process(target=self.__receive)
+        self.on: bool = False
+
+    def __enter__(self):
+        # Todo: Docstring
+
+        self.start()
+
+        return self
+
+    def __exit__(self, *exec_info):
+        # Todo: Docstring
+
+        self.clones["compile"]["stop"] = True
+        self.stop()
+
+    def __del__(self):
+        # Todo: Docstring
+
+        self.clones["compile"]["stop"] = True
+        self.stop()
+
+    def __shadow_clone_jutsu(self, signal: str):
+        # Todo: Docstring
+
+        shadow_clone: ShadowClone = self.clones[signal]["slave"]
+        self.clones[signal]["soul"] = Thread(target=shadow_clone.perform)
+
+    def __alive(self, signal: str):
+        # Todo: Docstring
+
+        if self.clones[signal]["soul"] is not None:
+            return self.clones[signal]["soul"].is_alive()
+        else:
+            return False
+
+    @logger.catch
+    def __compile(self):
+        # Todo: Docstring
 
         while True:
-            if not self.messages.empty():
+            if self.clones["compile"]["stop"]:
+                break
 
-                message: Tuple[str, Optional[bool]] = self.messages.get()
+            if not self.results.empty():
+                slave, result = self.results.get()
 
-                if message[0] == "stop":  # pragma: no cover
+                if self.soul.is_alive():
+                    self.responses.put((slave, result))
+                    self.bug("Compiled result added to responses")
+
+                self.history[slave] = result
+
+                self.bug(f"Updated history for slave: {slave}")
+
+        return 0
+
+    @logger.catch
+    def __receive(self):
+        # Todo: Docstring
+
+        self.notify("Starting up")
+
+        while True:
+            if not self.requests.empty():
+
+                msg = self.requests.get()
+
+                self.notify(f"Message received: {msg}")
+
+                if msg == "stop":
                     self.notify("Shutting down")
                     break
 
-                elif message[0] == "result":
-                    result: Optional[Any] = self.get_result(signal=message[1])
-                    self.results.put(result) if result is not None else None
-
-                elif self.check_task(signal=message[0]):
-                    if message[1]:
-                        # Task is blocking
-                        # Wait for result
-                        result: Optional[Any] = self.perform_task(
-                            signal=message[0], wait=True
-                        )
-                        self.results.put(result) if result is not None else None
-                    else:
-                        self.perform_task(signal=message[0])
                 else:
-                    self.notify("Invalid message received")
+                    self.notify(f"Performing task: {msg}")
+                    self.perform(signal=msg)
 
-        self.notify(f"Stopped running on pid: {os.getpid()}")
+        return 0
 
-    def add_task(self, signal: str, task: Tuple[Any]):
-        """Delegates task to a ShadowClone which can be called via signal
+    @logger.catch
+    def perform(self, signal: str):
+        # Todo: Docstring
 
-        Args:
-            signal (str): Signal that will be called in order to run task
-            task (Tuple[Any]): Task to be executed when signal is received
-        """
-
-        # Shadow Clone Jutsu
-        if not self.check_task(signal=signal):
-
-            clone: ShadowClone = ShadowClone()
-
-            if len(task) > 1:
-                # Task came with args
-                clone.assign(func=task[0], **task[1])  # type: ignore
-            else:
-                clone.assign(func=task[0])  # type: ignore
-
-            # Clone performs task when signal is called
-            self.clones[signal] = clone
-
-    def remove_task(self, signal: str):
-        """Removes clone via the signal it is attached to
-
-        Args:
-            signal (str): Signal that will be called in order to run task
-        """
+        # Create thread
+        self.__shadow_clone_jutsu(signal=signal)
 
         if signal in self.clones.keys():
-            del self.clones[signal]
+            self.clones[signal]["soul"].start()
 
-    def check_task(self, signal: str):
-        """Returns true if there is a task attached to signal
+    def wait(self, signal: str):
+        # Todo: Docstring
 
-        Args:
-            signal (str): Signal that will be called in order to run task
+        if signal in self.clones.keys():
+            self.clones[signal]["soul"].join() if self.__alive(signal=signal) else None
 
-        Returns:
-            [type]: [description]
-        """
+    def compile(self, signal: str, run: bool = False):
+        # Todo: Docstring
 
-        return signal in self.clones.keys()
+        if signal in self.clones.keys():
 
-    def perform_task(self, signal: str, wait: bool = False):
-        """Performs the task attached to the signal and returns the result if waited on or returns the task worker to manage the task
+            if run:
+                self.perform(signal=signal)
 
-        Args:
-            signal (str): Signal that will be called in order to run task
-            wait (bool, optional): Wait for task to finish executing before continuing. Defaults to False.
+            self.wait(signal=signal)
 
-        Returns:
-            [Any]: Result if wait was set to True and task returns a result that is not None
-        """
+            if signal not in self.history.keys():
+                return None
 
-        if wait:
-            return self.clones[signal].perform(block=True)
+            return self.history[signal]
 
-        else:
-            self.clones[signal].perform()
+    def compile_all(self):
+        # Todo: Docstring
 
-    def get_result(self, signal: str):
-        """Waits for the result for the task that was performed
+        for signal in self.clones.keys():
+            if signal == "compile":
+                continue
 
-        Args:
-            signal (str): Signal that will be called in order to run task
+            self.compile(signal=signal, run=True)
 
-        Returns:
-            [Any]: Result if wait was set to True and task returns a result that is not None
-        """
+    def start(self):
+        # Todo: Docstring
 
-        if self.check_task(signal=signal):
-            # Grab last result from clone history if any
-            return self.clones[signal].check(wait=True)
+        if not self.soul.is_alive():
+            self.soul.start()
+
+    def stop(self):
+        # Todo: Docstring
+
+        if self.soul.is_alive():
+            self.requests.put("stop")
+            self.soul.join()

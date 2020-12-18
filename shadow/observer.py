@@ -18,6 +18,15 @@ class ShadowObserver:
         for key, msg in kwargs.items():
             logger.info(f"{key}: {msg}")
 
+    def debug(self, *args, **kwargs):
+        """Notifies all registered observers of a debug message"""
+
+        for msg in args:
+            logger.debug(msg)
+
+        for key, msg in kwargs.items():
+            logger.debug(f"{key}: {msg}")
+
 
 class Observable:
 
@@ -50,3 +59,9 @@ class Observable:
 
         for observer in self.observers:
             observer.update(*args, **kwargs)
+
+    def bug(self, *args, **kwargs):
+        """Sends a debug message to all registered observers"""
+
+        for observer in self.observers:
+            observer.debug(*args, **kwargs)
