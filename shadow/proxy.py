@@ -1,18 +1,18 @@
 """Provides a way to send and receive messages to running ShadowBot process"""
 
+from abc import abstractmethod
+from typing import Any, Optional, Tuple
+
 from shadow.bot import ShadowBot
 from shadow.observer import ShadowObserver
 
-from abc import abstractmethod
-
-from typing import Any, Dict, Optional, Tuple
 
 class IShadowProxy:
 
     """Proxy Interface for ShadowBot"""
 
     @abstractmethod
-    def send(self, signal: str, **kwargs):
+    def send(self, signal: str, wait: bool = False):
         raise NotImplementedError()
 
     @abstractmethod
@@ -32,8 +32,9 @@ class IShadowProxy:
         raise NotImplementedError()
 
     @abstractmethod
-    def observe(self):
+    def unobserve(self):
         raise NotImplementedError()
+
 
 class ShadowProxy(IShadowProxy):
 
@@ -45,19 +46,36 @@ class ShadowProxy(IShadowProxy):
         self.bot: ShadowBot = ShadowBot()
         self.observer: Optional[ShadowObserver] = None
 
-    def send(self, signal: str, **kwargs):
+    def send(self, signal: str, wait: bool = False):
         """Sends a signal to the proccess ShadowBot is running on"""
 
         if self.bot.check_task(signal=signal):
-            msg: Tuple[str, Any] = (signal, kwargs)
+            msg: Tuple[str, Any] = (signal, wait)
             self.bot.messages.put(msg)
+
+            if wait:
+                result: Any = self.bot.results.get()
+                return result
+
+    def wait(self, signal: str):
+        """Waits for task to finish and returns the result"""
+
+        result: Optional[Any] = None
+
+        if self.bot.check_task(signal=signal):
+            msg: Tuple[str, str] = ("result", signal)
+            self.bot.messages.put(msg)
+
+            result = self.bot.results.get()
+
+        return result
 
     def start(self):
         """ShadowBot starts listening for messages on a seperate process"""
 
         if not self.alive():
 
-            self.notify("Starting up")
+            self.bot.notify("Starting up")
 
             self.bot.soul.start()
 

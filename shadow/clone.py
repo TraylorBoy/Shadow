@@ -2,9 +2,8 @@
 
 import os
 import queue
-
 from copy import copy
-from threading import Thread
+from threading import Lock, Thread
 from typing import Any, Callable, Optional, Tuple
 
 from loguru import logger
@@ -20,6 +19,7 @@ class ShadowClone:
         # Keeps track of tasks
         self.task: Optional[Tuple] = None
         self.__thread: Optional[Thread] = None
+        self.__thread_lock: Lock = Lock()
 
         # Stores results
         self.history: queue.Queue = queue.Queue()
@@ -34,14 +34,15 @@ class ShadowClone:
         if self.task[1] is not None:
             result: Any = self.task[0](**self.task[1])
         else:
-            result: Any = self.task[0]() # pragma: no cover
+            result: Any = self.task[0]()  # pragma: no cover
 
         # Update result history
         if result is not None:
-            logger.debug("Updating history")
+            with self.__thread_lock:
+                logger.debug("Updating history")
 
-            # Store result
-            self.history.put(result)
+                # Store result
+                self.history.put(result)
 
             logger.debug(f"Task finished with result: {result}")
 
@@ -55,7 +56,6 @@ class ShadowClone:
 
         # Assign function and function args
         self.task = (func, kwargs)
-
 
     def perform(self, block: bool = False):
         """Performs assigned task on a seperate thread, if block then it waits until thread is finished executing"""
@@ -81,12 +81,15 @@ class ShadowClone:
     def check(self, wait: bool = False):
         """Gets result from last completed task"""
 
-        if wait and self.__thread.is_alive():
+        if wait and self.__thread is not None and self.__thread.is_alive():
             logger.debug("Waiting for result")
             self.__thread.join()
+
+        if self.__thread is not None and not self.__thread.is_alive():
             self.__thread = None
 
         if not self.history.empty():
+            logger.debug("Result found")
             return self.history.get()
 
         logger.debug("No result found")

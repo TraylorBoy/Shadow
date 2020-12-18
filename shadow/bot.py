@@ -9,6 +9,7 @@ from loguru import logger
 from shadow.clone import ShadowClone
 from shadow.observer import Observable
 
+
 class ShadowBot(Observable):
 
     """Base bot class"""
@@ -29,9 +30,40 @@ class ShadowBot(Observable):
         self.messages: Queue = Queue()
         self.results: Queue = Queue()
 
-    def add_task(
-        self, signal: str, task: Tuple[Any]
-    ):
+    @logger.catch
+    def __run(self):
+        """Waits till it receives a signal then performs task associated with signal"""
+
+        self.notify(f"Started running on pid: {os.getpid()}")
+
+        while True:
+            if not self.messages.empty():
+
+                message: Tuple[str, Optional[bool]] = self.messages.get()
+
+                if message[0] == "stop":  # pragma: no cover
+                    self.notify("Shutting down")
+                    break
+
+                elif message[0] == "result":
+                    result: Optional[Any] = self.get_result(signal=message[1])
+                    self.results.put(result) if result is not None else None
+
+                elif self.check_task(signal=message[0]):
+                    if message[1]:
+                        # Task is blocking
+                        # Wait for result
+                        self.results.put(
+                            self.perform_task(signal=message[0], wait=True)
+                        )
+                    else:
+                        self.perform_task(signal=message[0])
+                else:
+                    self.notify("Invalid message received")
+
+        self.notify(f"Stopped running on pid: {os.getpid()}")
+
+    def add_task(self, signal: str, task: Tuple[Any]):
         """Delegates task to a ShadowClone which can be called via signal"""
 
         # Shadow Clone Jutsu
@@ -43,7 +75,7 @@ class ShadowBot(Observable):
                 # Task came with args
                 clone.assign(func=task[0], **task[1])  # type: ignore
             else:
-                clone.assign(func=task[0]) # type: ignore
+                clone.assign(func=task[0])  # type: ignore
 
             # Clone performs task when signal is called
             self.clones[signal] = clone
@@ -77,37 +109,8 @@ class ShadowBot(Observable):
 
         result: Optional[Any] = None
 
-        # Grab last result from clone history if any
-        result = self.clones[signal].check(wait=True)
+        if self.check_task(signal=signal):
+            # Grab last result from clone history if any
+            result = self.clones[signal].check(wait=True)
 
         return result
-
-    @logger.catch
-    def __run(self):
-        """Waits till it receives a signal then performs task associated with signal"""
-
-        self.notify(f"Started running on pid: {os.getpid()}")
-
-        while True:
-            if not self.messages.empty():
-
-                message: Tuple[str, Optional[bool]] = self.messages.get()
-
-                if message[0] == "stop": # pragma: no cover
-                    self.notify("Shutting down")
-                    break
-                elif message[0] == "result":
-                    self.results.put(self.get_result(signal=message[1]))
-
-                elif self.check_task(signal=message[0]):
-                    if message[1]:
-                        # Task is blocking
-                        # Wait for result
-                        self.results.put(self.perform_task(signal=message[0], wait=True))
-                    else:
-                        self.perform_task(signal=message[0])
-                else:
-                    self.notify("Invalid message received")
-
-        self.notify(f"Stopped running on pid: {os.getpid()}")
-
