@@ -3,13 +3,21 @@
 from functools import partial
 from typing import Callable, Dict
 
+import dill
+
+from shadow.cache import ShadowCache
+
 
 class ShadowTask(object):
 
     """Task object used to instansiate ShadowBot"""
 
     def __repr__(self):
-        # Todo: Docstring
+        """ShadowTask description
+
+        Returns:
+            [str]: Task items
+        """
 
         task_list: str = ""
 
@@ -24,28 +32,45 @@ class ShadowTask(object):
         self.tasks: Dict[str, partial] = {}
 
     def add(self, name: str, task: Callable, *args, **kwargs):
-        # Todo: Docstring
+        """Add signal, function partial, and arguments to task list
 
-        task: partial = partial(task, *args, **kwargs)
+        Args:
+            name (str): Signal to call task
+            task (Callable): Function to call
+        """
+
+        _task: partial = partial(task, *args, **kwargs)
 
         if name not in self.tasks.keys():
-            self.tasks[name] = task
+            self.tasks[name] = _task
 
     def remove(self, name: str):
-        # Todo: Docstring
+        """Remove task from task list
+
+        Args:
+            name (str): Signal used to call task
+        """
 
         if name in self.tasks.keys():
-            task: partial = self.tasks[name]
             del self.tasks[name]
 
     def save(self, list_name: str):
-        # Todo: Docstring
+        """Store task list in memory cache
 
-        # Todo: Store tasks in cache server
-        pass
+        Args:
+            list_name (str): Name of task list to store; used to retrieve task from cache
+        """
+
+        with ShadowCache() as cache:
+
+            cache.store(key=list_name, value=dill.dumps(self.tasks))
 
     def load(self, list_name: str):
-        # Todo: Docstring
+        """Retrieves task list from memory cache
 
-        # Todo: Load task from cache server
-        pass
+        Args:
+            list_name (str): Name of task list to retrieve
+        """
+
+        with ShadowCache() as cache:
+            self.tasks = dill.loads(cache.retrieve(key=list_name))

@@ -1,21 +1,21 @@
 """Task Manager"""
 
-from datetime import datetime
+import os
 from multiprocessing import Process, Queue
 from threading import Thread
 from typing import Any, Dict, Optional
 
+import dill
 from loguru import logger
 
+from shadow.cache import ShadowCache
 from shadow.clone import ShadowClone
+from shadow.helpers.catcher import ShadowCatch
 from shadow.observer import Observable
+from shadow.task import ShadowTask
 
-# Setup log file
-logger.add(
-    f"shadow/logs/{datetime.now().month}_{datetime.now().day}_{datetime.now().year}.log",
-    rotation="500 MB",
-    enqueue=True,
-)
+# Wrap logger.catch in order for it to be picked up
+logger.catch = ShadowCatch(target=logger.catch)  # type: ignore
 
 
 class ShadowBot(Observable, object):
@@ -23,7 +23,11 @@ class ShadowBot(Observable, object):
     """Master class for running tasks performed by ShadowClones (slaves)"""
 
     def __repr__(self):
-        """Returns a string representation of the ShadowBot"""
+        """Returns a string representation of the ShadowBot
+
+        Returns:
+            [str]: ShadowBot properties
+        """
 
         tasks: str = ""
 
@@ -38,54 +42,80 @@ class ShadowBot(Observable, object):
             {tasks}
         """
 
-    def __init__(self, name: str, shadow_task: object):
-        # Todo: Docstring
+    def __init__(self, name: str, shadow_task: ShadowTask):
+        """Instantiates ShadowBot with ShadowTask object
+
+        Args:
+            name (str): A unique ID used for caching ShadowBot instance
+            shadow_task (object): Instantiated ShadowTask instance
+        """
 
         self.id: str = name
-        self.clones: Dict[str, Dict[str, Optional[object]]] = {}
+        self.clones: Dict[str, Dict[str, Any]] = {}
         self.history: Dict[str, Optional[Any]] = {}
 
-        for signal, _partial in shadow_task.tasks.items():
+        self.__setup_tasks(manager=shadow_task)
+        self.__setup_soul()
+
+        # Store tasks in cache so bot can be revived
+        self.zombify()
+
+    def __setup_tasks(self, manager: ShadowTask):
+        """Bind task methods and task lists to ShadowBot instance
+
+        Args:
+            shadow_task (object): Instantiated ShadowTask instance
+        """
+
+        # Keep task manager for re-initializing ShadowBot
+        self.task_manager: ShadowTask = manager
+
+        for signal, _partial in self.task_manager.tasks.items():
             # Create new clone for each task
             self.clones[signal] = {
                 "slave": ShadowClone(master=self, name=signal, task=_partial),
                 "soul": None,
             }
 
-        # Run task compiler
-        self.results: Queue = Queue()
+    def __setup_soul(self):
+        """ShadowBot runs on a seperate process in order to perform tasks"""
 
-        self.clones["compile"] = {
-            "slave": ShadowClone(master=self, name="compile", task=self.__compile),
-            "stop": False,
-            "soul": None,
-        }
+        # Slaves put task results into results Queue
+        self.results: Optional[Queue] = Queue()
 
-        self.perform(signal="compile")
+        # Bot listens for messages put into requests Queue
+        self.requests: Optional[Queue] = Queue()
 
-        # Setup process
-        self.requests: Queue = Queue()
-        self.responses: Queue = Queue()
-        self.soul: Process = Process(target=self.__receive)
-        self.on: bool = False
+        # Bot sends results to responses Queue
+        self.responses: Optional[Queue] = Queue()
 
+        # Process bot runs on
+        self.soul: Optional[Process] = Process(target=self.__receive)
+
+    @logger.catch
     def __enter__(self):
-        # Todo: Docstring
+        """Starts the process and waits for signals
 
+        Attempts to retrieve ShadowBot instance from cache by ID
+
+        Returns:
+            [ShadowBot]: Running ShadowBot instance
+        """
+
+        # Retrieve instance from memory cache and start running process
+        self.zombify(load=True)
+        self.bug(self.soul)
+
+        # Start the process
         self.start()
 
         return self
 
+    @logger.catch
     def __exit__(self, *exec_info):
-        # Todo: Docstring
+        """Stops the process and caches ShadowBot instance"""
 
-        self.clones["compile"]["stop"] = True
-        self.stop()
-
-    def __del__(self):
-        # Todo: Docstring
-
-        self.clones["compile"]["stop"] = True
+        # Stop running process
         self.stop()
 
     def __shadow_clone_jutsu(self, signal: str):
@@ -127,7 +157,7 @@ class ShadowBot(Observable, object):
     def __receive(self):
         # Todo: Docstring
 
-        self.notify("Starting up")
+        self.notify("Starting up", pid=os.getpid())
 
         while True:
             if not self.requests.empty():
@@ -139,6 +169,14 @@ class ShadowBot(Observable, object):
                 if msg == "stop":
                     self.notify("Shutting down")
                     break
+
+                elif msg == "wait":
+                    self.notify("Waiting for tasks to finish")
+                    self.wait_all()
+
+                elif msg == "compile":
+                    self.notify("Compiling all tasks")
+                    self.compile_all()
 
                 else:
                     self.notify(f"Performing task: {msg}")
@@ -156,12 +194,20 @@ class ShadowBot(Observable, object):
         if signal in self.clones.keys():
             self.clones[signal]["soul"].start()
 
+    @logger.catch
     def wait(self, signal: str):
         # Todo: Docstring
 
         if signal in self.clones.keys():
             self.clones[signal]["soul"].join() if self.__alive(signal=signal) else None
 
+    @logger.catch
+    def wait_all(self):
+
+        for signal in self.clones.keys():
+            self.wait(signal=signal)
+
+    @logger.catch
     def compile(self, signal: str, run: bool = False):
         # Todo: Docstring
 
@@ -177,6 +223,7 @@ class ShadowBot(Observable, object):
 
             return self.history[signal]
 
+    @logger.catch
     def compile_all(self):
         # Todo: Docstring
 
@@ -186,15 +233,68 @@ class ShadowBot(Observable, object):
 
             self.compile(signal=signal, run=True)
 
+    @logger.catch
+    def compiler(self):
+        """Runs compiler on seperate thread"""
+
+        # Slave compiles results sent by slaves on a seperate thread
+        self.clones["compile"] = {
+            "slave": ShadowClone(master=self, name="compile", task=self.__compile),
+            "stop": False,
+            "soul": None,
+        }
+
+        self.perform(signal="compile")
+
+    @logger.catch
     def start(self):
-        # Todo: Docstring
+        """Runs the ShadowBot on a seperate process
+
+        ShadowBot starts listening for messages and compiling results
+        """
 
         if not self.soul.is_alive():
+
+            # Start compiling results
+            self.compiler()
+
+            # Start process
             self.soul.start()
 
+    @logger.catch
     def stop(self):
-        # Todo: Docstring
+        """Stop running the ShadowBot process"""
 
         if self.soul.is_alive():
+            # Send stop message to process
             self.requests.put("stop")
+
+            # Stop compiler thread
+            self.clones["compile"]["stop"] = True
+
+            # Wait for process to finish
             self.soul.join()
+
+    @logger.catch
+    def zombify(self, load: bool = False):
+        """Stores task manager in cache by ID
+
+        Args:
+            shadow_task (object): Task list to store in cache
+        """
+
+        # Store bot task manager in cache
+        with ShadowCache() as cache:
+            if not load:
+
+                self.bug("Storing to cache", bot=self)
+
+                cache.store(key=self.id, value=dill.dumps(self.task_manager))
+
+            else:
+
+                mod_soul = dill.loads(cache.retrieve(key=self.id))
+
+                self.__init__(name=self.id, shadow_task=mod_soul)  # type: ignore
+
+                self.bug("Loaded from cache", bot=self)

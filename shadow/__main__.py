@@ -30,9 +30,10 @@ def main():
 
     with bot:
         bot.requests.put("truth")
-        bot.requests.put("sleep")
-
         print(bot.responses.get())
+
+    with bot:
+        bot.requests.put("sleep")
         print(bot.responses.get())
 
 

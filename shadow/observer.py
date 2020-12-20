@@ -1,8 +1,16 @@
 """Publish-Subscriber classes used for observing a ShadowBot"""
 
+from datetime import datetime
 from typing import List
 
 from loguru import logger
+
+# Setup log file
+logger.add(
+    f"shadow/logs/{datetime.now().month}_{datetime.now().day}_{datetime.now().year}.log",
+    rotation="500 MB",
+    enqueue=True,
+)
 
 
 class ShadowObserver:
