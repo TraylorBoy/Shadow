@@ -31,18 +31,12 @@ class ShadowBot(Observable, object):
 
         tasks: str = ""
 
-        for signal, clone in self.clones.items():
-            tasks += f"{signal} - {clone}\n"
+        for signal in self.clones:
+            tasks += f"{signal}() "
 
-        return f"""
-            Name: {self.id}
+        return f"Name: {self.id} Tasks: {tasks}"
 
-            Tasks
-            -----
-            {tasks}
-        """
-
-    def __init__(self, name: str, shadow_task: ShadowTask):
+    def __init__(self, name: str, shadow_task: Optional[ShadowTask] = None):
         """Instantiates ShadowBot with ShadowTask object
 
         Args:
@@ -54,11 +48,15 @@ class ShadowBot(Observable, object):
         self.clones: Dict[str, Dict[str, Any]] = {}
         self.history: Dict[str, Optional[Any]] = {}
 
-        self.__setup_tasks(manager=shadow_task)
-        self.__setup_soul()
+        if shadow_task is not None:
+            self.__setup_tasks(manager=shadow_task)
+            self.__setup_soul()
 
-        # Store tasks in cache so bot can be revived
-        self.zombify()
+            # Store tasks in cache so bot can be revived
+            self.zombify()
+        else:
+            # Load from cache
+            self.zombify(load=True)
 
     def __setup_tasks(self, manager: ShadowTask):
         """Bind task methods and task lists to ShadowBot instance
