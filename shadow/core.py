@@ -1,25 +1,25 @@
 """Command line application for the Shadow project"""
+# pragma: no cover
 
 from typing import Dict, List
 
-from shadow.helpers.signals import TEST_SIGNALS
-from shadow.task import ShadowTask
 from shadow.bot import ShadowBot
 from shadow.cache import ShadowCache
+from shadow.helpers.signals import TEST_SIGNALS
+from shadow.task import ShadowTask
+
 
 class Shadow(object):
 
     """Application entry point"""
 
     def __init__(self):
-        """Setup the interactive command line script
-        """
+        """Setup the interactive command line script"""
 
         self.possession: Dict[str, object] = {}
 
     def __load(self):
-        """Loads stored bots from cache
-        """
+        """Loads stored bots from cache"""
 
         with ShadowCache() as cache:
             if cache.retrieve(key="possession") is not None:
@@ -50,8 +50,7 @@ class Shadow(object):
             cache.store(key="possession", value=list(self.possession.keys()))
 
     def start(self):
-        """Starts the interactive command line script
-        """
+        """Starts the interactive command line script"""
 
         while True:
 

@@ -1,6 +1,6 @@
 [run]
 source = shadow
-omit = shadow/__main__.py
+omit = shadow/__main__.py, shadow/core.py
 
 [report]
 exclude_lines =

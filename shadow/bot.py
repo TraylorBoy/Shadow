@@ -12,13 +12,14 @@ from shadow.cache import ShadowCache
 from shadow.clone import ShadowClone
 from shadow.helpers.catcher import ShadowCatch
 from shadow.observer import Observable
+from shadow.proxy import IShadowProxy
 from shadow.task import ShadowTask
 
 # Wrap logger.catch in order for it to be picked up
 logger.catch = ShadowCatch(target=logger.catch)  # type: ignore
 
 
-class ShadowBot(Observable, object):
+class ShadowBot(Observable, IShadowProxy, object):
 
     """Master class for running tasks performed by ShadowClones (slaves)"""
 
@@ -47,6 +48,9 @@ class ShadowBot(Observable, object):
         self.id: str = name
         self.clones: Dict[str, Dict[str, Any]] = {}
         self.history: Dict[str, Optional[Any]] = {}
+        self.keep_alive: bool = (
+            False  # Keep the ShadowBot process alive after exiting context manager
+        )
 
         if shadow_task is not None:
             self.__setup_tasks(manager=shadow_task)
@@ -100,9 +104,12 @@ class ShadowBot(Observable, object):
             [ShadowBot]: Running ShadowBot instance
         """
 
+        # Process is already running
+        if self.keep_alive:
+            return self
+
         # Retrieve instance from memory cache and start running process
         self.zombify(load=True)
-        self.bug(self.soul)
 
         # Start the process
         self.start()
@@ -111,10 +118,11 @@ class ShadowBot(Observable, object):
 
     @logger.catch
     def __exit__(self, *exec_info):
-        """Stops the process and caches ShadowBot instance"""
+        """Stops the process"""
 
-        # Stop running process
-        self.stop()
+        if not self.keep_alive:
+            # Stop running process
+            self.stop()
 
     def __shadow_clone_jutsu(self, signal: str):
         # Todo: Docstring
@@ -166,6 +174,7 @@ class ShadowBot(Observable, object):
 
                 if msg == "stop":
                     self.notify("Shutting down")
+                    self.keep_alive = False
                     break
 
                 elif msg == "wait":
@@ -206,13 +215,12 @@ class ShadowBot(Observable, object):
             self.wait(signal=signal)
 
     @logger.catch
-    def compile(self, signal: str, run: bool = False):
+    def compile(self, signal: str):
         # Todo: Docstring
 
         if signal in self.clones.keys():
 
-            if run:
-                self.perform(signal=signal)
+            self.perform(signal=signal)
 
             self.wait(signal=signal)
 
@@ -229,7 +237,7 @@ class ShadowBot(Observable, object):
             if signal == "compile":
                 continue
 
-            self.compile(signal=signal, run=True)
+            self.compile(signal=signal)
 
     @logger.catch
     def compiler(self):

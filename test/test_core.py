@@ -3,7 +3,14 @@ from typing import Optional
 
 import pytest
 
-from shadow import ShadowBot, ShadowCache, ShadowObserver, ShadowTask, signals
+from shadow import (
+    ShadowBot,
+    ShadowCache,
+    ShadowObserver,
+    ShadowProxy,
+    ShadowTask,
+    signals,
+)
 
 # ---------------------------------------------------------------------------- #
 #                                    Helpers                                   #
@@ -49,6 +56,14 @@ def bot(shadowtask):
     bot.register(observer=ShadowObserver())
 
     return bot
+
+
+@pytest.fixture
+def proxy(bot):
+
+    proxy: object = ShadowProxy(shadowbot=bot)
+
+    return proxy
 
 
 # ---------------------------------------------------------------------------- #
@@ -125,4 +140,36 @@ def test_shadowbot(bot):
             task, result = bot.responses.get()
             assert result
 
-        assert bot.compile(signal="true", run=True)
+        assert bot.compile(signal="true")
+
+    zombie_bot: object = ShadowBot(name="TestBot")
+
+    with zombie_bot:
+        zombie_bot.requests.put("true")
+        zombie_bot.requests.put("wait")
+
+        task, result = zombie_bot.responses.get()
+        assert task == "true" and result
+
+        zombie_bot.requests.put("compile")
+        while not zombie_bot.responses.empty():
+            task, result = zombie_bot.responses.get()
+            assert result
+
+        assert zombie_bot.compile(signal="true")
+
+
+# -------------------------------- ShadowProxy ------------------------------- #
+
+
+def test_proxy(bot, proxy):
+    with bot:
+
+        proxy.perform(signal="true")
+        assert proxy.wait(signal="true")
+
+        assert proxy.compile(signal="true")
+        assert proxy.compile(signal="sleep")
+
+    assert proxy.start()
+    assert proxy.stop()
