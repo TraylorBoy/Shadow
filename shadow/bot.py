@@ -12,13 +12,9 @@ from loguru import logger
 
 from shadow.cache import ShadowCache
 from shadow.clone import ShadowClone
-from shadow.helpers.catcher import ShadowCatch
 from shadow.observer import Observable
 from shadow.proxy import IShadowProxy
 from shadow.task import ShadowTask
-
-# Wrap logger.catch in order for it to be picked up
-logger.catch = ShadowCatch(target=logger.catch)  # type: ignore
 
 
 class ShadowDaemon(run.RunDaemon, object):  # pragma: no cover
@@ -124,7 +120,7 @@ class ShadowBot(Observable, IShadowProxy, object):
         self.responses: Optional[Queue] = Queue()
 
         # Process bot runs on
-        self.soul: Optional[Process] = Process(target=self.__receive)
+        self.soul: Optional[Process] = Process(target=self.__receive, daemon=True)
 
     def __setup_daemon(self):
         """Setup daemon wrapper to run instance in the background"""

@@ -1,7 +1,8 @@
-from shadow.bot import ShadowBot
-from shadow.cache import ShadowCache
-from shadow.clone import ShadowClone
-from shadow.helpers import catcher, signals
-from shadow.observer import ShadowObserver
-from shadow.proxy import ShadowProxy
-from shadow.task import ShadowTask
+from .bot import ShadowBot
+from .cache import ShadowCache
+from .clone import ShadowClone
+from .core import Shadow
+from .helpers import signals
+from .observer import ShadowObserver
+from .proxy import ShadowProxy
+from .task import ShadowTask

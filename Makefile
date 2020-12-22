@@ -1,5 +1,6 @@
 install:
 	pipenv install --dev
+	pipenv install --editable .
 	pipenv run pre-commit install -t pre-commit
 	pipenv run pre-commit install -t pre-push
 
@@ -26,8 +27,5 @@ pre:
 	git add .
 	pre-commit
 
-f-commit:
-	git commit --no-verify
-
-f-push:
-	git push --no-verify
+init:
+	pipenv install --editable .

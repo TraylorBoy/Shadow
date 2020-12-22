@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "40020685752a2fa6c35c57d7d3bf0368f9d09a04d3cdd644c8edd6a3eeff521b"
+            "sha256": "d4354ae84fc1360ec071228f88734bfa5e978baa37bcf41c828881fd7f6a0233"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -92,6 +92,10 @@
                 "sha256:fe07bc6735d08e492a327f496b7850e98cb4d112c56df69b0c844dbebcbb47f6"
             ],
             "version": "==1.0.2"
+        },
+        "shadow": {
+            "editable": true,
+            "path": "."
         },
         "ujson": {
             "hashes": [
@@ -212,7 +216,7 @@
                 "sha256:fda29412a66099af6d6de0baa6bd7c52674de177ec2ad2630ca264142d69c6c7",
                 "sha256:ff1330e8bc996570221b450e2d539134baa9465f5cb98aff0e0f73f34172e0ae"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
             "version": "==5.3.1"
         },
         "distlib": {

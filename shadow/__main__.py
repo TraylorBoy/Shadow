@@ -2,16 +2,14 @@
 
 from loguru import logger
 
-from shadow.core import Shadow
+from shadow import Shadow
 
 
 @logger.catch
 def main():
     """Provides a command interface for interacting with the Shadow package"""
 
-    shadow = Shadow()
-
-    shadow.start()
+    Shadow()
 
 
 if __name__ == "__main__":
