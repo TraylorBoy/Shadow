@@ -2,10 +2,12 @@
 
 import os
 from multiprocessing import Process, Queue
+from pathlib import Path
 from threading import Thread
 from typing import Any, Dict, Optional
 
 import dill
+from daemons.prefab import run
 from loguru import logger
 
 from shadow.cache import ShadowCache
@@ -19,9 +21,33 @@ from shadow.task import ShadowTask
 logger.catch = ShadowCatch(target=logger.catch)  # type: ignore
 
 
+class ShadowDaemon(run.RunDaemon, object):  # pragma: no cover
+
+    """Daemon wrapper for running ShadowBot in the background"""
+
+    def init(self, master: IShadowProxy):
+        """Daemonizes ShadowBot
+
+        Args:
+            master (IShadowProxy): ShadowBot to daemonize
+        """
+
+        self.master: IShadowProxy = master
+
+    @logger.catch
+    def run(self):
+        """Runs ShadowBot as a daemon"""
+
+        # Start listening for messages from ShadowBot
+        self.master.receiver()
+        self.master.compiler()
+
+
 class ShadowBot(Observable, IShadowProxy, object):
 
     """Master class for running tasks performed by ShadowClones (slaves)"""
+
+    ID: str = ""
 
     def __repr__(self):
         """Returns a string representation of the ShadowBot
@@ -45,7 +71,13 @@ class ShadowBot(Observable, IShadowProxy, object):
             shadow_task (object): Instantiated ShadowTask instance
         """
 
+        # Add ShadowBot pidfile for running as a daemon
+        self.pidfile = f"shadow/data/daemons/{name}.pid"
+
+        self.__setup_daemon()
+
         self.id: str = name
+        self.ID = name  # Used for PID generation
         self.clones: Dict[str, Dict[str, Any]] = {}
         self.history: Dict[str, Optional[Any]] = {}
         self.keep_alive: bool = (
@@ -93,6 +125,15 @@ class ShadowBot(Observable, IShadowProxy, object):
 
         # Process bot runs on
         self.soul: Optional[Process] = Process(target=self.__receive)
+
+    def __setup_daemon(self):
+        """Setup daemon wrapper to run instance in the background"""
+
+        Path(self.pidfile).touch()  # Create pidfile in data directory
+        self._daemon: ShadowDaemon = ShadowDaemon(
+            pidfile=os.path.join(os.getcwd(), self.pidfile)
+        )
+        self._daemon.init(master=self)
 
     @logger.catch
     def __enter__(self):
@@ -160,12 +201,22 @@ class ShadowBot(Observable, IShadowProxy, object):
         return 0
 
     @logger.catch
-    def __receive(self):
+    def __receive(self):  # pragma: no cover
         # Todo: Docstring
 
-        self.notify("Starting up", pid=os.getpid())
+        self.notify("Starting up")
+        self.notify(pid=os.getpid())
+
+        daemonized: bool = self._daemon.pid is not None
 
         while True:
+            if daemonized:
+                if self._daemon.pid is None:
+                    break
+            else:
+                if not self.soul.is_alive():
+                    break
+
             if not self.requests.empty():
 
                 msg = self.requests.get()
@@ -235,7 +286,7 @@ class ShadowBot(Observable, IShadowProxy, object):
 
         for signal in self.clones.keys():
             if signal == "compile":
-                continue
+                continue  # pragma: no cover
 
             self.compile(signal=signal)
 
@@ -253,6 +304,12 @@ class ShadowBot(Observable, IShadowProxy, object):
         self.perform(signal="compile")
 
     @logger.catch
+    def receiver(self):
+        """Runs the receiver on current process"""
+
+        self.__receive()  # pragma: no cover
+
+    @logger.catch
     def start(self):
         """Runs the ShadowBot on a seperate process
 
@@ -261,17 +318,18 @@ class ShadowBot(Observable, IShadowProxy, object):
 
         if not self.soul.is_alive():
 
-            # Start compiling results
-            self.compiler()
-
             # Start process
             self.soul.start()
+
+            # Start compiling results
+            self.compiler()
 
     @logger.catch
     def stop(self):
         """Stop running the ShadowBot process"""
 
         if self.soul.is_alive():
+
             # Send stop message to process
             self.requests.put("stop")
 
@@ -289,7 +347,32 @@ class ShadowBot(Observable, IShadowProxy, object):
             shadow_task (object): Task list to store in cache
         """
 
-        # Store bot task manager in cache
+        if not load:
+
+            self.bug("Storing soul", bot=self)
+
+            with open(f"shadow/data/souls/{self.id}.soul", "wb") as soul:
+                dill.dump(self.task_manager, soul)
+
+        else:
+
+            self.bug("Loading soul", bot=self)
+
+            mod_soul: Optional[Any] = None
+
+            with open(f"shadow/data/souls/{self.id}.soul", "rb") as soul:
+                mod_soul = dill.load(soul)
+
+            self.__init__(name=self.id, shadow_task=mod_soul)  # type: ignore
+
+    @logger.catch
+    def cache(self, load: bool = False):  # pragma: no cover
+        """Caches task manager to memory
+
+        Args:
+            load (bool, optional): Load task manager from memory. Defaults to False.
+        """
+
         with ShadowCache() as cache:
             if not load:
 
@@ -298,9 +381,20 @@ class ShadowBot(Observable, IShadowProxy, object):
                 cache.store(key=self.id, value=dill.dumps(self.task_manager))
 
             else:
+                self.bug("Loading from cache", bot=self)
 
                 mod_soul = dill.loads(cache.retrieve(key=self.id))
 
                 self.__init__(name=self.id, shadow_task=mod_soul)  # type: ignore
 
-                self.bug("Loaded from cache", bot=self)
+    @logger.catch
+    def daemonize(self):  # pragma: no cover
+        """Starts the daemon process"""
+
+        self._daemon.start()
+
+    @logger.catch
+    def kill(self):  # pragma: no cover
+        """Stops the daemon process"""
+
+        self._daemon.stop()

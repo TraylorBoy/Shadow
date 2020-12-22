@@ -171,5 +171,8 @@ def test_proxy(bot, proxy):
         assert proxy.compile(signal="true")
         assert proxy.compile(signal="sleep")
 
+    proxy.observe()
     assert proxy.start()
     assert proxy.stop()
+
+    proxy.unobserve()
