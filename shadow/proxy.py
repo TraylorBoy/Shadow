@@ -75,7 +75,7 @@ class ShadowProxy(IShadowProxy, object):
             signal (str): Message to send
         """
 
-        if self.alive():
+        if self.alive() and signal in self.__bot.clones.keys():
             self.__bot.requests.put(signal)  # type: ignore
 
     @logger.catch
@@ -166,3 +166,9 @@ class ShadowProxy(IShadowProxy, object):
         """Unregisters proxy observer from the ShadowBot instance"""
 
         self.__bot.deregister(observer=self.__observer)
+
+    def list_signals(self):
+        """Returns a list of all signals attached to the ShadowBot instance
+        """
+
+        return list(self.__bot.clones.keys())

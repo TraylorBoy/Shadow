@@ -6,11 +6,7 @@ from typing import List
 from loguru import logger
 
 # Setup log file
-logger.add(
-    f"shadow/logs/{datetime.now().month}_{datetime.now().day}_{datetime.now().year}.log",
-    rotation="500 MB",
-    enqueue=True,
-)
+logger.add(f"shadow/logs/{datetime.now().month}_{datetime.now().day}_{datetime.now().year}.log", filter="shadow/bot.py")
 
 
 class ShadowObserver:

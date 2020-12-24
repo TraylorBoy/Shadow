@@ -9,7 +9,7 @@ from shadow import (
     ShadowObserver,
     ShadowProxy,
     ShadowTask,
-    signals,
+    ShadowSignal,
 )
 
 # ---------------------------------------------------------------------------- #
@@ -35,7 +35,7 @@ def remove_task(shadowtask, signal: str):
 
 @pytest.fixture
 def tasks():
-    return signals.TEST_SIGNALS
+    return ShadowSignal().TEST
 
 
 @pytest.fixture
@@ -43,7 +43,6 @@ def shadowtask(tasks):
 
     shadowtask: object = ShadowTask()
     shadowtask.add(name="true", task=tasks["true"])
-    shadowtask.add(name="sleep", task=tasks["sleep"])
     shadowtask.add(name="true delete", task=tasks["true"])
 
     return shadowtask
@@ -76,7 +75,6 @@ def proxy(bot):
 
 def test_shadowtask(shadowtask):
     assert check_task(shadowtask, signal="true")
-    assert check_task(shadowtask, signal="sleep")
     assert remove_task(shadowtask, signal="true delete")
 
     shadowtask.save(list_name="test")
@@ -169,7 +167,8 @@ def test_proxy(bot, proxy):
         assert proxy.wait(signal="true")
 
         assert proxy.compile(signal="true")
-        assert proxy.compile(signal="sleep")
+
+    assert len(proxy.list_signals()) > 0
 
     proxy.observe()
     assert proxy.start()

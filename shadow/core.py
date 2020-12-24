@@ -7,7 +7,7 @@ import click
 
 from shadow.bot import ShadowBot
 from shadow.cache import ShadowCache
-from shadow.helpers.signals import TEST_SIGNALS
+from shadow.signals import ShadowSignal
 from shadow.proxy import ShadowProxy
 from shadow.task import ShadowTask
 
@@ -35,6 +35,10 @@ class Core(object):
             for soul in souls:
                 soul = soul.strip(".soul")
 
+                # Bot used for test purposes
+                if soul == "TestBot":
+                    continue
+
                 # Instantiate bot with soul
                 self.possession[soul] = ShadowProxy(shadowbot=ShadowBot(name=soul))
 
@@ -54,12 +58,12 @@ class Core(object):
 
             # Create default test bot
             default_tasks: object = ShadowTask()
-            default_tasks.add(name="true", task=TEST_SIGNALS["true"])
-            default_tasks.add(name="sleep", task=TEST_SIGNALS["sleep"], len=3)
+            default_tasks.add(name="true", task=ShadowSignal().TEST["true"])
+            default_tasks.add(name="sleep", task=ShadowSignal().UTILITIES["sleep"], len=3)
 
             self.possession = {
-                "TestBot": ShadowProxy(
-                    shadowbot=ShadowBot(name="TestBot", shadow_task=default_tasks)
+                "ShadowBot": ShadowProxy(
+                    shadowbot=ShadowBot(name="ShadowBot", shadow_task=default_tasks)
                 )
             }
 
@@ -74,8 +78,82 @@ core: Core = Core()
 def Shadow():
     pass
 
+@Shadow.command()
+def bots():
+    """Lists all ShadowBots and their state
+    """
+
+    for _id in core.possession:
+        click.echo(f"\n{_id} - {'Alive' if core.possession[_id].alive() else 'Dead'}")
+
+    click.echo("\n")
 
 @Shadow.command()
-def list():
+def signals():
+    """Lists all signals that are attached to the given ShadowBot
+
+    If none is given, lists all signals for every ShadowBot
+    """
+
     for _id in core.possession:
-        click.echo(_id)
+        click.echo(f"\n{_id} - {core.possession[_id].list_signals()}")
+
+    click.echo("\n")
+
+@Shadow.command()
+@click.argument("name", required=1)
+def run(name):
+    """Start running the ShadowBot process
+    """
+
+    if name in core.possession.keys():
+
+        core.possession[name].observe()
+        core.possession[name].start()
+
+    else:
+
+        click.echo(f"\n{name} does not exist\n")
+
+
+@Shadow.command()
+@click.argument("name", required=1)
+def stop(name):
+    """Stop running the ShadowBot process
+    """
+
+    if name in core.possession.keys() and core.possession[name].alive():
+
+        core.possession[name].stop()
+
+    else:
+
+        click.echo(f"\n{name} does not exist\n")
+
+@Shadow.command()
+@click.argument("name", required=1)
+@click.argument("signal", required=1)
+def perform(name, signal):
+    """Have a ShadowBot perform a task
+    """
+
+    if name in core.possession.keys() and core.possession[name].alive():
+
+        core.possession[name].perform(signal=signal)
+
+    else:
+
+        click.echo(f"\n{name} does not exist\n")
+
+@Shadow.command()
+def compile():
+    """Get the result from a completed task
+    """
+    pass
+
+@Shadow.command()
+def daemonize():
+    """Have a ShadowBot run in the background
+    """
+    pass
+
