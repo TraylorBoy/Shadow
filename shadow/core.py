@@ -7,7 +7,7 @@ import dill
 
 from typing import Optional, Tuple, Any, Dict
 
-from shadow import ShadowProxy
+from shadow import ShadowProxy, Needles
 
 class Core(object):
 
@@ -22,10 +22,7 @@ class Core(object):
         self.load()
 
     def load(self):
-        """[summary]
-
-        Returns:
-            [type]: [description]
+        """Loads settings from cache
         """
 
         if os.path.exists("shadow/data/cache/connection.cache"):
@@ -33,18 +30,17 @@ class Core(object):
                 self.settings: Optional[Tuple[str, int]] = dill.load(cache_file)
 
     def store(self, value: Any):
-        """[summary]
+        """Caches value
 
         Args:
-            key (str): [description]
-            value (Any): [description]
+            value (Any): Value to cache
         """
 
         with open("shadow/data/cache/connection.cache", "wb") as cache_file:
             dill.dump(value, cache_file)
 
     def connect(proxy, *args, **kwargs):
-        """[summary]
+        """Opens a connection to the server for the decorated function
 
         Args:
             proxy ([type]): [description]
@@ -59,11 +55,11 @@ class Core(object):
         return connection
 
     def serve(self, host: str, port: int):
-        """[summary]
+        """Starts running the server on the given host and port
 
         Args:
-            host (str): [description]
-            port (int): [description]
+            host (str): Host to run server on
+            port (int): Port to communicate with the server
         """
 
         self.proxy = ShadowProxy(host, port)
@@ -89,6 +85,18 @@ class Core(object):
 
         self.proxy.kill()
 
+    def reset(self):
+        """Removes settings from cache
+        """
+
+        click.echo("Restoring default settings...")
+
+        os.remove("shadow/data/cache/connection.cache")
+
+        # Remove stored ShadowBots
+        Needles().reset()
+
+        click.echo("Restored")
 
 core: Core = Core()
 
@@ -125,7 +133,14 @@ def send(event, data):
 
 @Shadow.command()
 def kill():
-    """[summary]
+    """Stops the server
     """
 
     core.kill()
+
+@Shadow.command()
+def reset():
+    """Resets stored state
+    """
+
+    core.reset()

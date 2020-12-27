@@ -100,7 +100,7 @@ class Needles(object):
 
                 # Retrieve partial from clone
                 for task, clone in bot.clones.items():
-                    _needles[task] = clone.task
+                    _needles[_id][task] = clone.task
 
             dill.dump(_needles, cache_file)
 
