@@ -12,6 +12,7 @@ dill = "*"
 click = "*"
 daemons = "*"
 shadow = {editable = true, path = "."}
+shell = "*"
 
 [dev-packages]
 black = "==20.8b1"

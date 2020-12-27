@@ -8,7 +8,7 @@ from datetime import datetime
 
 from functools import partial
 
-from typing import Optional, Any, Dict, Callable
+from typing import Optional, Any, Dict, Callable, List
 
 from shadow.helpers import Borg
 from shadow.interface import IShadowNetwork
@@ -72,6 +72,25 @@ class ShadowNetwork(Borg, IShadowNetwork):
         if writer.can_write_eof():
             writer.write_eof()
 
+    async def read(self, reader: asyncio.StreamReader):
+        """Reads data sent to the server
+
+        Args:
+            reader (asyncio.StreamReader): Read socket
+
+        Returns:
+            [Optional[Any]]: Data sent to the server
+        """
+
+        data: List[Any] = []
+
+        while True:
+            packet = await reader.readline()
+            if not packet: break
+            data.append(packet)
+
+        return data
+
     async def receive(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Client connection calllback for when server starts running
 
@@ -80,11 +99,11 @@ class ShadowNetwork(Borg, IShadowNetwork):
             writer (asyncio.StreamWriter): Write socket
         """
 
-        data: Any = await reader.readline()
+        data: Optional[Any] = await self.read(reader)
 
         if data:
 
-            message: Dict[str, Optional[Any]] = dill.loads(data)
+            message: Dict[str, Optional[Any]] = dill.loads(b"".join(data))
 
             logger.info(f"Received message: {message}")
 
@@ -142,7 +161,7 @@ class ShadowNetwork(Borg, IShadowNetwork):
         if writer.can_write_eof():
             writer.write_eof()
 
-        data: Any = await reader.readline()
+        data: Optional[Any] = await self.read(reader)
 
         if data:
             # Close connection
@@ -150,7 +169,7 @@ class ShadowNetwork(Borg, IShadowNetwork):
             await writer.wait_closed()
 
             # Return response
-            return dill.loads(data)
+            return dill.loads(b"".join(data))
 
     async def kill(self):
         """Sends a kill event to the server
@@ -171,7 +190,7 @@ class ShadowNetwork(Borg, IShadowNetwork):
         message: Dict[str, Optional[Any]] = {
 
             "event": "build",
-            "data": (name, tasks)
+            "data": {"name": name, "tasks": tasks}
 
         }
 
@@ -199,7 +218,7 @@ class ShadowNetwork(Borg, IShadowNetwork):
             _params: Optional[Any] = message["data"]
 
             if _params is not None:
-                await handlers[event](writer, *_params, **_params)
+                await handlers[event](writer, **_params)
             else:
                 await handlers[event](writer)
 

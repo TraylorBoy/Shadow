@@ -1,9 +1,10 @@
 """Command line application for the Shadow project"""
 
 import os
-import time
 import click
 import dill
+
+from shell import shell
 
 from typing import Optional, Tuple, Any, Dict
 
@@ -47,7 +48,11 @@ class Core(object):
         """
 
         def connection(self, *args, **kwargs):
-            host, port = self.settings
+            if self.settings is not None:
+                host, port = self.settings
+            else:
+                host, port = "127.0.0.1", 8888
+
             self.proxy = ShadowProxy(host, port)
 
             proxy(self, *args, **kwargs)
@@ -144,3 +149,14 @@ def reset():
     """
 
     core.reset()
+
+@Shadow.command()
+def build():
+    """Executes the build script in current directory
+
+    The build script connects to the server via ShadowProxy and pickles the params passed to proxies build method
+    necessary to instantiate the ShadowBot
+    """
+
+    shell("python build.py")
+
