@@ -134,15 +134,22 @@ def serve(host, port):
     core.serve(host, port)
 
 @Shadow.command()
-@click.option("--event", default="status", help="Event to signal to the server")
-@click.option("--data", default=None, help="Data to send to the server")
-def send(event, data):
+@click.option("--param", default=None, help="Event data parameter")
+@click.option("--arg", default=None, help="Event data args")
+@click.argument("event", default="status")
+def send(event, param, arg):
     """Send a request to the server
 
     Args:
         event ([str]): Event to signal to the server
-        data ([Any]): Data to send to the server
+        param ([str]): Parameters for signaled event
+        arg   ([str]): Arguments to signal
     """
+
+    data: Optional[Dict[str, Optional[Any]]] = None
+
+    if param is not None and arg is not None:
+        data = {param: arg}
 
     message: Dict[str, Optional[Any]] = {
         "event": event,

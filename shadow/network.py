@@ -210,7 +210,8 @@ class ShadowNetwork(Borg, IShadowNetwork):
         handlers: Dict[str, Callable] = {
             "kill": self.__stop,
             "status": self.__status,
-            "build": self.__build
+            "build": self.__build,
+            "retract": self.__retract,
         }
 
         if message["event"] in handlers.keys():
@@ -246,9 +247,12 @@ class ShadowNetwork(Borg, IShadowNetwork):
             writer (asyncio.StreamWriter): Send socket
         """
 
+        logger.info("Server Status: Alive")
+        logger.info(f"Needles Status: {self.needles}")
+
         response: Dict[str, Optional[Any]] = {
             "event": "status",
-            "data": "Alive"
+            "data": {"server": "Alive", "needles": list(self.needles.needles.keys())}
         }
 
         await self.write(response, writer)
@@ -272,6 +276,32 @@ class ShadowNetwork(Borg, IShadowNetwork):
         response: Dict[str, Optional[Any]] = {
             "event": "build",
             "data": shadowbot.id
+        }
+
+        await self.write(response, writer)
+
+    async def __retract(self, writer: asyncio.StreamWriter, name: str):
+        """Retract message handler
+
+        Args:
+            writer (asyncio.StreamWriter): Send socket
+        """
+
+        if not self.needles.check(bot=self.needles.needles[name]):
+
+            logger.warning(f"Invalid needle: {name}")
+
+            return None
+
+        logger.info(f"Retracting needle: {self.needles.needles[name]}")
+
+        essence: Dict[str, Dict[str, partial]] = self.needles.retract(bot=self.needles.needles[name])
+
+        logger.info(f"Needle retracted: {essence}")
+
+        response: Dict[str, Optional[Any]] = {
+            "event": "status",
+            "data": {"needle": essence}
         }
 
         await self.write(response, writer)

@@ -5,7 +5,7 @@ from threading import Thread
 
 from functools import partial
 
-from typing import Dict, Any, Optional, Callable, Tuple
+from typing import Dict, Any, Optional, Callable, Tuple, List
 
 from shadow.clone import ShadowClone
 from shadow.interface import IShadowBot
@@ -15,6 +15,25 @@ from loguru import logger
 class ShadowBot(IShadowBot):
 
     """Master class for running tasks performed by ShadowClones (slaves)"""
+
+    def __repr__(self):
+        name: str = self.id
+        tasks: str = list(self.clones.keys())
+        state: str = "Running" if self.alive() else "Dead"
+        current_tasks: List[str] = []
+
+        if state == "Running":
+            for task, clone in self.clones.items():
+                if clone.alive():
+                    current_tasks.append(task)
+
+        return f"""
+            {name}: {state}
+            ---------------
+            Tasks - {tasks}
+            Running - {current_tasks if len(current_tasks) > 0 else 'None'}
+        """
+
 
     def __init__(self, name: str, tasks: Dict[str, partial]):
         """Sets ShadowBot's default properties and state

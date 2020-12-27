@@ -8,7 +8,7 @@ from copy import copy
 from shadow.bot import ShadowBot
 from functools import partial
 
-from typing import Dict
+from typing import Dict, List
 
 from loguru import logger
 
@@ -16,6 +16,26 @@ class Needles(object):
 
     """Manages ShadowBots on the ShadowNetwork"""
 
+    def __repr__(self):
+        """
+        Needles: {self.count()}
+        -----------------------
+        {bot_info}
+        """
+
+        bot_info: str = ""
+
+        for _, bot in self.needles.items():
+            bot_info += str(bot)
+
+        _needle_str: str =\
+        f"""
+        Needles: {self.count()}
+        -----------------------
+        {bot_info}
+        """
+
+        return _needle_str
 
     def __init__(self):
         """Sets initial needles state
@@ -50,15 +70,25 @@ class Needles(object):
 
         Args:
             bot (ShadowBot): Instantiated ShadowBot instance
+
+        Returns:
+            [Dict[str, Dict[str, partial]]]: The ShadowBots name and tasks used to initialize the instance
         """
 
+        essence: Dict[str, Dict[str, partial]] = {}
+
         if bot.id in self.needles.keys():
+
+            # Remove the needle from the needles dictionary
+            essence = self.needle(bot)
             del self.needles[bot.id]
 
-            logger.debug(f"{bot.id} retracted")
+            logger.debug(f"{essence} retracted")
 
             # Cache the needles dictionary
             self.save()
+
+        return essence
 
     def can_load(self):
         """Checks if cache file exists
@@ -124,4 +154,31 @@ class Needles(object):
 
         return bot.id in self.needles.keys()
 
+    def count(self):
+        """Count the number of sewn ShadowBot instances
+
+        Returns:
+            [int]: Length of needles
+        """
+
+        return len(self.needles)
+
+    def needle(self, bot: ShadowBot):
+        """Retrieves ShadowBot init params from instantiated instance
+
+        Args:
+            bot (ShadowBot): Instantiated ShadowBot instance
+
+        Returns:
+            [Dict[str, Dict[str, partial]]]: ShadowBots name and tasks used to initialize the instance
+        """
+
+        needle: Dict[str, Dict[str, partial]] = {}
+        needle[bot.id] = {}
+
+        # Retrieve partial from clone
+        for task, clone in bot.clones.items():
+            needle[bot.id][task] = clone.task
+
+        return needle
 
