@@ -1,177 +1,116 @@
-from functools import partial
-from typing import Optional
 
 import pytest
-
-from shadow import (
-    ShadowBot,
-    ShadowCache,
-    ShadowObserver,
-    ShadowProxy,
-    ShadowTask,
-    ShadowSignal,
-)
-
-# ---------------------------------------------------------------------------- #
-#                                    Helpers                                   #
-# ---------------------------------------------------------------------------- #
-
-
-def check_task(shadowtask, signal: str):
-    return signal in shadowtask.tasks.keys()
-
-
-def remove_task(shadowtask, signal: str):
-
-    shadowtask.remove(name=signal)
-
-    return not check_task(shadowtask, signal)
-
+import shadow
+import asyncio
+from threading import Thread
+from multiprocessing import Process, Queue
 
 # ---------------------------------------------------------------------------- #
 #                                   Fixtures                                   #
 # ---------------------------------------------------------------------------- #
 
-
 @pytest.fixture
 def tasks():
-    return ShadowSignal().TEST
-
-
-@pytest.fixture
-def shadowtask(tasks):
-
-    shadowtask: object = ShadowTask()
-    shadowtask.add(name="true", task=tasks["true"])
-    shadowtask.add(name="true delete", task=tasks["true"])
-
-    return shadowtask
-
-
-@pytest.fixture
-def bot(shadowtask):
-
-    bot: object = ShadowBot(name="TestBot", shadow_task=shadowtask)
-    bot.register(observer=ShadowObserver())
-
-    return bot
-
-
-@pytest.fixture
-def proxy(bot):
-
-    proxy: object = ShadowProxy(shadowbot=bot)
-
-    return proxy
-
+    return shadow.helpers.Tasks
 
 # ---------------------------------------------------------------------------- #
 #                                     Tests                                    #
 # ---------------------------------------------------------------------------- #
 
+# ------------------------ ShadowProxy & ShadowNetwork ----------------------- #
 
-# -------------------------------- ShadowTask -------------------------------- #
+async def proxy():
+
+    proxy = shadow.ShadowProxy()
+
+    p = Process(target=proxy.serve)
+
+    p.start()
+
+    await asyncio.sleep(1)
+
+    res = await proxy.network.send(message={"event": "status", "data": None})
+
+    assert res["data"] == "Alive"
+
+    await proxy.network.kill()
+
+    p.join()
+
+    return True
 
 
-def test_shadowtask(shadowtask):
-    assert check_task(shadowtask, signal="true")
-    assert remove_task(shadowtask, signal="true delete")
-
-    shadowtask.save(list_name="test")
-    shadowtask: object = ShadowTask()
-
-    assert len(shadowtask.tasks) == 0
-    assert not check_task(shadowtask, signal="true")
-
-    shadowtask.load(list_name="test")
-
-    assert check_task(shadowtask, signal="true")
+@pytest.mark.asyncio
+async def test_proxy():
+    assert await proxy()
 
 
-# -------------------------------- ShadowCache ------------------------------- #
+# -------------------------------- ShadowClone ------------------------------- #
 
+def clone(tasks):
+    results = Queue()
 
-def test_shadowcache(shadowtask):
+    shadowclone = shadow.ShadowClone(id="flip", pipe=results, task=tasks["test"]["flip"])
 
-    key: str = "true"
-    value: bool = True
+    assert shadowclone.name == "flip"
+    assert shadowclone.pipe is results
+    assert not shadowclone.alive()
+    assert not shadowclone.wait()
 
-    with ShadowCache() as cache:
-        cache.store(key=key, value=value)
+    Thread(target=shadowclone.perform).start()
 
-    value = False
+    assert shadowclone.wait()
 
-    with ShadowCache() as cache:
-        value = cache.retrieve(key=key)
+    assert not results.empty()
+    task, result = results.get(block=True)
 
-    assert value
+    assert task == "flip"
+    assert not result
 
-    name: str = "true"
-    task: Optional[partial] = shadowtask.tasks[name]
+    return True
 
-    assert task()
-
-    with ShadowCache() as cache:
-        cache.store(key=name, value=task)
-
-    task = None
-
-    with ShadowCache() as cache:
-        task = cache.retrieve(key=name)
-
-    assert task()
-
+def test_clone(tasks):
+    assert clone(tasks)
 
 # --------------------------------- ShadowBot -------------------------------- #
 
+def bot(tasks):
 
-def test_shadowbot(bot):
-    with bot:
-        bot.requests.put("true")
-        bot.requests.put("wait")
+    shadowbot = shadow.ShadowBot(name="TestBot", tasks=tasks["test"])
+    manager = shadow.Needles()
 
-        task, result = bot.responses.get()
-        assert task == "true" and result
+    manager.sew(bot=shadowbot)
+    assert manager.check(bot=shadowbot)
 
-        bot.requests.put("compile")
-        while not bot.responses.empty():
-            task, result = bot.responses.get()
-            assert result
+    assert shadowbot.id == "TestBot"
+    assert "flip" in shadowbot.clones.keys()
+    assert not shadowbot.get()
+    assert not shadowbot.listen()
 
-        assert bot.compile(signal="true")
+    shadowbot.start()
+    assert shadowbot.alive()
 
-    zombie_bot: object = ShadowBot(name="TestBot")
+    shadowbot.pipe["task"].put("flip", block=True)
+    shadowbot.pipe["event"].put("task", block=True)
+    shadowbot.pipe["wait"].put("flip", block=True)
+    shadowbot.pipe["event"].put("wait", block=True)
+    shadowbot.pipe["event"].put("compile", block=True)
 
-    with zombie_bot:
-        zombie_bot.requests.put("true")
-        zombie_bot.requests.put("wait")
+    if not shadowbot.pipe["response"].empty():
 
-        task, result = zombie_bot.responses.get()
-        assert task == "true" and result
+        task, result = shadowbot.pipe["response"].get()
 
-        zombie_bot.requests.put("compile")
-        while not zombie_bot.responses.empty():
-            task, result = zombie_bot.responses.get()
-            assert result
+        assert task == "flip"
+        assert not result
 
-        assert zombie_bot.compile(signal="true")
+    shadowbot.kill()
+    assert not shadowbot.alive()
 
+    return True
 
-# -------------------------------- ShadowProxy ------------------------------- #
+def test_bot(tasks):
+    assert bot(tasks)
 
 
-def test_proxy(bot, proxy):
-    with bot:
 
-        proxy.perform(signal="true")
-        assert proxy.wait(signal="true")
 
-        assert proxy.compile(signal="true")
-
-    assert len(proxy.list_signals()) > 0
-
-    proxy.observe()
-    assert proxy.start()
-    assert proxy.stop()
-
-    proxy.unobserve()

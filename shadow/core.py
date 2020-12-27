@@ -1,159 +1,131 @@
 """Command line application for the Shadow project"""
 
 import os
-from typing import Dict, List
-
+import time
 import click
+import dill
 
-from shadow.bot import ShadowBot
-from shadow.cache import ShadowCache
-from shadow.signals import ShadowSignal
-from shadow.proxy import ShadowProxy
-from shadow.task import ShadowTask
+from typing import Optional, Tuple, Any, Dict
 
+from shadow import ShadowProxy
 
 class Core(object):
 
     """Application entry point"""
 
     def __init__(self):
-        """Setup the interactive command line script"""
+        """Setup the interactive console"""
 
-        # Setup session
-        self.__setup()
+        self.proxy: Optional[ShadowProxy] = None
+        self.settings: Optional[Tuple[str, int]] = None
 
-    def __setup(self):
-        """Setup interactive session"""
+        self.load()
 
-        # Tracks ShadowBots during session
-        self.possession: Dict[str, object] = {}
+    def load(self):
+        """[summary]
 
-        # Load souls from data if there are any
-        souls: List[str] = os.listdir("shadow/data/souls")
+        Returns:
+            [type]: [description]
+        """
 
-        if len(souls) > 0:
-            for soul in souls:
-                soul = soul.strip(".soul")
+        if os.path.exists("shadow/data/cache/connection.cache"):
+            with open("shadow/data/cache/connection.cache", "rb") as cache_file:
+                self.settings: Optional[Tuple[str, int]] = dill.load(cache_file)
 
-                # Bot used for test purposes
-                if soul == "TestBot":
-                    continue
+    def store(self, value: Any):
+        """[summary]
 
-                # Instantiate bot with soul
-                self.possession[soul] = ShadowProxy(shadowbot=ShadowBot(name=soul))
+        Args:
+            key (str): [description]
+            value (Any): [description]
+        """
 
-        else:
+        with open("shadow/data/cache/connection.cache", "wb") as cache_file:
+            dill.dump(value, cache_file)
 
-            # No souls stored, create default
-            self.new()
+    def connect(proxy, *args, **kwargs):
+        """[summary]
 
-        # Cache keys
-        with ShadowCache() as cache:
-            cache.store(key="possession", value=list(self.possession.keys()))
+        Args:
+            proxy ([type]): [description]
+        """
 
-    def new(self):
-        """Creates a default ShadowBot and stores it"""
+        def connection(self, *args, **kwargs):
+            host, port = self.settings
+            self.proxy = ShadowProxy(host, port)
 
-        with ShadowCache() as cache:
+            proxy(self, *args, **kwargs)
 
-            # Create default test bot
-            default_tasks: object = ShadowTask()
-            default_tasks.add(name="true", task=ShadowSignal().TEST["true"])
-            default_tasks.add(name="sleep", task=ShadowSignal().UTILITIES["sleep"], len=3)
+        return connection
 
-            self.possession = {
-                "ShadowBot": ShadowProxy(
-                    shadowbot=ShadowBot(name="ShadowBot", shadow_task=default_tasks)
-                )
-            }
+    def serve(self, host: str, port: int):
+        """[summary]
 
-            # Store keys in cache so that they can be restored
-            cache.store(key="possession", value=list(self.possession.keys()))
+        Args:
+            host (str): [description]
+            port (int): [description]
+        """
+
+        self.proxy = ShadowProxy(host, port)
+
+        self.store(value=(host, port))
+
+        self.proxy.serve()
+
+    @connect
+    def send(self, message: Dict[str, Optional[Any]]):
+        """[summary]
+
+        Args:
+            message (str): [description]
+        """
+
+        click.echo(self.proxy.send(message))
+
+    @connect
+    def kill(self):
+        """[summary]
+        """
+
+        self.proxy.kill()
 
 
 core: Core = Core()
-
 
 @click.group()
 def Shadow():
     pass
 
 @Shadow.command()
-def bots():
-    """Lists all ShadowBots and their state
+@click.option("--host", default="127.0.0.1", help="Host to run server on")
+@click.option("--port", default=8888, help="Port to server communicates on")
+def serve(host, port):
+    """Start the ShadowNetwork
     """
 
-    for _id in core.possession:
-        click.echo(f"\n{_id} - {'Alive' if core.possession[_id].alive() else 'Dead'}")
-
-    click.echo("\n")
+    core.serve(host, port)
 
 @Shadow.command()
-def signals():
-    """Lists all signals that are attached to the given ShadowBot
+@click.option("--event", default="status", help="Event to signal to the server")
+@click.option("--data", default=None, help="Data to send to the server")
+def send(event, data):
+    """Send a request to the server
 
-    If none is given, lists all signals for every ShadowBot
+    Args:
+        event ([str]): Event to signal to the server
+        data ([Any]): Data to send to the server
     """
 
-    for _id in core.possession:
-        click.echo(f"\n{_id} - {core.possession[_id].list_signals()}")
+    message: Dict[str, Optional[Any]] = {
+        "event": event,
+        "data": data
+    }
 
-    click.echo("\n")
+    core.send(message)
 
 @Shadow.command()
-@click.argument("name", required=1)
-def run(name):
-    """Start running the ShadowBot process
+def kill():
+    """[summary]
     """
 
-    if name in core.possession.keys():
-
-        core.possession[name].observe()
-        core.possession[name].start()
-
-    else:
-
-        click.echo(f"\n{name} does not exist\n")
-
-
-@Shadow.command()
-@click.argument("name", required=1)
-def stop(name):
-    """Stop running the ShadowBot process
-    """
-
-    if name in core.possession.keys() and core.possession[name].alive():
-
-        core.possession[name].stop()
-
-    else:
-
-        click.echo(f"\n{name} does not exist\n")
-
-@Shadow.command()
-@click.argument("name", required=1)
-@click.argument("signal", required=1)
-def perform(name, signal):
-    """Have a ShadowBot perform a task
-    """
-
-    if name in core.possession.keys() and core.possession[name].alive():
-
-        core.possession[name].perform(signal=signal)
-
-    else:
-
-        click.echo(f"\n{name} does not exist\n")
-
-@Shadow.command()
-def compile():
-    """Get the result from a completed task
-    """
-    pass
-
-@Shadow.command()
-def daemonize():
-    """Have a ShadowBot run in the background
-    """
-    pass
-
+    core.kill()

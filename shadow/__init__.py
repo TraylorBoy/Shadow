@@ -1,8 +1,9 @@
-from .bot import ShadowBot
-from .cache import ShadowCache
-from .clone import ShadowClone
-from .core import Shadow
-from .signals import ShadowSignal
-from .observer import ShadowObserver
+# Core packages
+from .network import ShadowNetwork
 from .proxy import ShadowProxy
-from .task import ShadowTask
+from .clone import ShadowClone
+from .bot import ShadowBot
+from .needles import Needles
+
+# Click Application
+from .core import Shadow

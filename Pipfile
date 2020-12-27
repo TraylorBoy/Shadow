@@ -8,9 +8,7 @@ python_version = "3.7"
 
 [packages]
 loguru = "*"
-aiocache = {extras = ["msgpack"], version = "*"}
 dill = "*"
-ujson = "*"
 click = "*"
 daemons = "*"
 shadow = {editable = true, path = "."}
@@ -23,3 +21,4 @@ mypy = "*"
 pre-commit = "*"
 pytest = "*"
 pytest-cov = "*"
+pytest-asyncio = "*"
