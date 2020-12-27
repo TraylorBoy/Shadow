@@ -22,6 +22,7 @@ logger.add(
     f"shadow/logs/server/{datetime.now().month}_{datetime.now().day}_{datetime.now().year}.log",
     rotation="500 MB",
     enqueue=True,
+    filter="network.py"
 )
 
 class ShadowNetwork(Borg, IShadowNetwork):
