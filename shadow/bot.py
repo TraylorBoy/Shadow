@@ -34,7 +34,6 @@ class ShadowBot(IShadowBot):
             Running - {current_tasks if len(current_tasks) > 0 else 'None'}
         """
 
-
     def __init__(self, name: str, tasks: Dict[str, partial]):
         """Sets ShadowBot's default properties and state
 

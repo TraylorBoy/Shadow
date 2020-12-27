@@ -57,7 +57,7 @@ class Needles(object):
             save (bool): Whether to save the needles dictionary in cache or not
         """
 
-        if bot.id not in self.needles.keys():
+        if not self.check(name=bot.id):
             self.needles[bot.id] = bot
 
             logger.debug(f"{bot.id} sewn")
@@ -77,7 +77,7 @@ class Needles(object):
 
         essence: Dict[str, Dict[str, partial]] = {}
 
-        if bot.id in self.needles.keys():
+        if self.check(name=bot.id):
 
             # Remove the needle from the needles dictionary
             essence = self.needle(bot)
@@ -142,7 +142,7 @@ class Needles(object):
 
         os.remove(self.__path)
 
-    def check(self, bot: ShadowBot):
+    def check(self, name: str):
         """Checks if ShadowBot is registered
 
         Args:
@@ -152,7 +152,7 @@ class Needles(object):
             [bool]: ShadowBot is registered or not
         """
 
-        return bot.id in self.needles.keys()
+        return name in self.needles.keys()
 
     def count(self):
         """Count the number of sewn ShadowBot instances
@@ -182,3 +182,12 @@ class Needles(object):
 
         return needle
 
+    def get(self, name: str):
+        """Retrieves ShadowBot from needles dictionary
+
+        Args:
+            name (str): ShadowBot to retrieve
+        """
+
+        if name in self.needles.keys():
+            return self.needles[name]

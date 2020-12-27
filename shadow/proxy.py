@@ -77,7 +77,7 @@ class ShadowProxy(IShadowNetwork):
 
         asyncio.run(self.network.kill())
 
-    def build(self, name: str, tasks: Dict[str, partial]):
+    def sew(self, name: str, tasks: Dict[str, partial]):
         """Sends the server information to build a ShadowBot
 
         Args:
@@ -85,4 +85,26 @@ class ShadowProxy(IShadowNetwork):
             tasks (Dict[str, partial]): Tasks for the ShadowBot to perform on the server
         """
 
-        asyncio.run(self.network.build(name, tasks))
+        asyncio.run(self.network.sew(name, tasks))
+
+    def retract(self, name: str):
+        """Signals the network to remove the sewn ShadowBot
+
+        Args:
+            name (str): Name used to identify the ShadowBot
+        """
+
+        asyncio.run(self.network.retract(name))
+
+    def signal(self, name: str, event: str, task: str, wait: bool = False):
+        """Sends a signal to the running ShadowBot process
+
+        Args:
+            name (str): Name used to identify the ShadowBot
+            event (str): Event for ShadowBot to handle
+            task (str): Task for ShadowBot to perform
+            wait (bool): Wait for the task to complete or not
+        """
+
+        asyncio.run(self.network.signal(name, event, task, wait))
+

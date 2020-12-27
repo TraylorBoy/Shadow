@@ -1,5 +1,6 @@
 """Creates a network of ShadowBots"""
 
+import shadow
 import sys
 import asyncio
 import dill
@@ -53,82 +54,6 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
         if not hasattr(self, "needles"):
             self.needles: Needles = Needles()
-
-# --------------------------------- Interface -------------------------------- #
-
-    async def serve(self):
-        """Start running server
-        """
-
-        logger.info(f"Serving on {self.host}:{self.port}")
-
-        await self.create_server()
-
-        async with self.server:
-
-            try:
-
-                await self.server.serve_forever()
-
-            except Exception:
-                pass
-
-    async def send(self, message: Dict[str, Optional[Any]]):
-        """Sends a message to the server
-
-        Args:
-            message (Dict[str, Optional[Any]): Message to send to the server
-
-        Returns:
-            [Dict[str, Optional[Any]]]: Response received from server
-        """
-
-        reader, writer = await asyncio.open_connection(self.host, self.port)
-
-        writer.write(dill.dumps(message))
-        await writer.drain()
-
-        # Close stream
-        if writer.can_write_eof():
-            writer.write_eof()
-
-        data: Optional[Any] = await self.read(reader)
-
-        if data:
-            # Close connection
-            writer.close()
-            await writer.wait_closed()
-
-            response: Optional[Any] = dill.loads(b"".join(data))
-
-            # Return response
-            return response
-
-    async def kill(self):
-        """Sends a kill event to the server
-        """
-
-        message: Dict[str, Optional[Any]] = {"event": "kill", "data": None}
-
-        await self.send(message)
-
-    async def build(self, name: str, tasks: Dict[str, partial]):
-        """Build wrapper for proxy
-
-        Args:
-            name (str): Name to identify the ShadowBot on the network
-            tasks (Dict[str, partial]): Tasks for the ShadowBot to perform
-        """
-
-        message: Dict[str, Optional[Any]] = {
-
-            "event": "build",
-            "data": {"name": name, "tasks": tasks}
-
-        }
-
-        await self.send(message)
-
 # ---------------------------------- Network --------------------------------- #
 
     async def create_server(self):
@@ -221,8 +146,9 @@ class ShadowNetwork(Borg, IShadowNetwork):
         handlers: Dict[str, Callable] = {
             "kill": self.__stop,
             "status": self.__status,
-            "build": self.__build,
+            "sew": self.__sew,
             "retract": self.__retract,
+            "signal": self.__signal
         }
 
         if message["event"] in handlers.keys():
@@ -237,6 +163,124 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
         else:
             logger.warning(f"Invalid event received: {message['event']}")
+
+# --------------------------------- Interface -------------------------------- #
+
+    async def serve(self):
+        """Start running server
+        """
+
+        logger.info(f"Serving on {self.host}:{self.port}")
+
+        await self.create_server()
+
+        async with self.server:
+
+            try:
+
+                await self.server.serve_forever()
+
+            except Exception:
+                pass
+
+    async def send(self, message: Dict[str, Optional[Any]]):
+        """Sends a message to the server
+
+        Args:
+            message (Dict[str, Optional[Any]): Message to send to the server
+
+        Returns:
+            [Dict[str, Optional[Any]]]: Response received from server
+        """
+
+        reader, writer = await asyncio.open_connection(self.host, self.port)
+
+        writer.write(dill.dumps(message))
+        await writer.drain()
+
+        # Close stream
+        if writer.can_write_eof():
+            writer.write_eof()
+
+        data: Optional[Any] = await self.read(reader)
+
+        if data:
+            # Close connection
+            writer.close()
+            await writer.wait_closed()
+
+            response: Optional[Any] = dill.loads(b"".join(data))
+
+            # Return response
+            return response
+
+    async def kill(self):
+        """Sends a kill event to the server
+        """
+
+        message: Dict[str, Optional[Any]] = {"event": "kill", "data": None}
+
+        await self.send(message)
+
+    async def sew(self, name: str, tasks: Dict[str, partial]):
+        """Build wrapper for proxy
+
+        Args:
+            name (str): Name to identify the ShadowBot on the network
+            tasks (Dict[str, partial]): Tasks for the ShadowBot to perform
+        """
+
+        message: Dict[str, Optional[Any]] = {
+
+            "event": "sew",
+            "data": {"name": name, "tasks": tasks}
+
+        }
+
+        await self.send(message)
+
+    async def retract(self, name: str):
+        """Sends a message to the network to retract a sewn ShadowBot from the network
+
+        Args:
+            name (str): Name used to identify the ShadowBot
+        """
+
+        message: Dict[str, Optional[Any]] = {
+            "event": "retract",
+            "data": {
+                "name": name
+            }
+        }
+
+        await self.send(message)
+
+    async def signal(self, name: str, event: str, task: str, wait: bool = False):
+        """Signals an event to ShadowBot on the network
+
+        Args:
+            name (str): Name used to identify the ShadowBot
+            event (str): Event for ShadowBot to handle
+            task (str): Task for ShadowBot to perform
+            wait (bool): Wait for the task to complete or not
+        """
+
+        logger.info(f"Sending {event} signal to ShadowBot: {name}")
+
+        message: Dict[str, Optional[Any]] = {
+            "event": "signal",
+            "data": {
+                "name": name,
+                "event": event,
+                "task": task,
+                "wait": wait
+            }
+        }
+
+        await self.send(message)
+
+
+# --------------------------------- Handlers --------------------------------- #
 
     async def __stop(self, writer: asyncio.StreamWriter):
         """Kill message event handler
@@ -268,7 +312,7 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
         await self.write(response, writer)
 
-    async def __build(self, writer: asyncio.StreamWriter, name: str, tasks: Dict[str, partial]):
+    async def __sew(self, writer: asyncio.StreamWriter, name: str, tasks: Dict[str, partial]):
         """Builds a ShadowBot and sews it on the ShadowNetwork
 
         Args:
@@ -299,15 +343,17 @@ class ShadowNetwork(Borg, IShadowNetwork):
             name (str): Name used to identify the ShadowBot
         """
 
-        if not self.needles.check(bot=self.needles.needles[name]):
+        if not self.needles.check(name):
 
             logger.warning(f"Invalid needle: {name}")
 
             return None
 
-        logger.info(f"Retracting needle: {self.needles.needles[name]}")
+        shadowbot: ShadowBot = self.needles.get(name)
 
-        essence: Dict[str, Dict[str, partial]] = self.needles.retract(bot=self.needles.needles[name])
+        logger.info(f"Retracting needle: {shadowbot}")
+
+        essence: Dict[str, Dict[str, partial]] = self.needles.retract(bot=shadowbot)
 
         logger.success(f"Needle retracted: {essence}")
 
@@ -328,13 +374,25 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
         pass
 
-    async def __signal(self, writer: asyncio.StreamWriter, event: str, data: Any):
+    async def __signal(self, writer: asyncio.StreamWriter, name: str, event: str, task: str, wait: bool = False):
         """Sends a signal to the running ShadowBot process
 
         Args:
             writer (asyncio.StreamWriter): Write socket
-            event (str): Event to send to the process
-            data (Any): Data associated with the event
+            name (str): Name used to identify the ShadowBot
+            event (str): Event for ShadowBot to handle
+            task (str): Task for ShadowBot to perform
+            wait (bool): Wait for the task to complete or not
         """
 
-        pass
+        if self.needles.check(name):
+            logger.info(f"Sending signal to ShadowBot: {name}")
+
+            shadowbot: ShadowBot = self.needles.get(name)
+
+            if not shadowbot.alive():
+                logger.critical(f"{name}: is Dead, please start the ShadowBot first")
+
+
+
+

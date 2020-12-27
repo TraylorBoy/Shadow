@@ -59,6 +59,8 @@ class Core(object):
 
         return connection
 
+# --------------------------------- Commands --------------------------------- #
+
     def serve(self, host: str, port: int):
         """Starts running the server on the given host and port
 
@@ -73,23 +75,6 @@ class Core(object):
 
         self.proxy.serve()
 
-    @connect
-    def send(self, message: Dict[str, Optional[Any]]):
-        """[summary]
-
-        Args:
-            message (str): [description]
-        """
-
-        click.echo(self.proxy.send(message))
-
-    @connect
-    def kill(self):
-        """[summary]
-        """
-
-        self.proxy.kill()
-
     def reset(self):
         """Removes settings from cache
         """
@@ -102,6 +87,33 @@ class Core(object):
         Needles().reset()
 
         click.echo("Restored")
+
+    @connect
+    def send(self, message: Dict[str, Optional[Any]]):
+        """Sends a message to the server
+
+        Args:
+            message (str): Message to send to the server
+        """
+
+        click.echo(self.proxy.send(message))
+
+    @connect
+    def retract(self, name: str):
+        """Removes the sewn ShadowBot from the network
+
+        Args:
+            name (str): Name used to identify the ShadowBot
+        """
+
+        self.proxy.retract(name)
+
+    @connect
+    def kill(self):
+        """Stops the running server
+        """
+
+        self.proxy.kill()
 
 core: Core = Core()
 
@@ -122,46 +134,33 @@ def serve(host, port):
     core.serve(host, port)
 
 @Shadow.command()
-@click.option("--param", default=None, help="Event data parameter")
-@click.option("--arg", default=None, help="Event data args")
-@click.argument("event", default="status")
-def send(event, param, arg):
-    """Send a request to the server
-
-    Args:
-        event ([str]): Event to signal to the server
-        param ([str]): Parameters for signaled event
-        arg   ([str]): Arguments to signal
+def status():
+    """Sends a status message to the server
     """
 
-    data: Optional[Dict[str, Optional[Any]]] = None
-
-    if param is not None and arg is not None:
-        data = {param: arg}
-
     message: Dict[str, Optional[Any]] = {
-        "event": event,
-        "data": data
+        "event": "status",
+        "data": None
     }
 
     core.send(message)
 
 @Shadow.command()
 def kill():
-    """Stops the server
+    """Stops the running server
     """
 
     core.kill()
 
 @Shadow.command()
 def reset():
-    """Resets stored state
+    """Removes ShadowBots from the server and cache files
     """
 
     core.reset()
 
 @Shadow.command()
-def build():
+def sew():
     """Executes the build script in current directory
 
     The build script connects to the server via ShadowProxy and pickles the params passed to proxies build method
@@ -170,3 +169,35 @@ def build():
 
     shell("python build.py")
 
+@Shadow.command()
+@click.argument("name")
+def retract(name):
+    """Removes ShadowBot from the server
+    """
+
+    core.retract(name)
+
+# TODO - Bot Group
+
+@Shadow.group()
+def bot():
+    """Bot communication
+    """
+
+    pass
+
+@bot.command()
+def start():
+    click.echo("Not implemented yet")
+
+@bot.command()
+def perform():
+    click.echo("Not implemented yet")
+
+@bot.command()
+def wait():
+    click.echo("Not implemented yet")
+
+@bot.command()
+def compile():
+    click.echo("Not implemented yet")

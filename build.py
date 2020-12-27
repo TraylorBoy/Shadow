@@ -2,10 +2,19 @@
 
 import random
 
+from datetime import datetime
+
 from shadow import ShadowProxy
 from shadow.helpers import Tasks
 
 from loguru import logger
+
+# Setup log file
+logger.add(
+    f"shadow/logs/client/{datetime.now().month}_{datetime.now().day}_{datetime.now().year}.log",
+    rotation="500 MB",
+    enqueue=True,
+)
 
 @logger.catch
 def main():
@@ -15,7 +24,8 @@ def main():
     logger.info("Building ShadowBot")
 
     proxy: ShadowProxy = ShadowProxy(host="127.0.0.1", port=8888)
-    proxy.build(name="Test" + str(random.randint(1, 3)) + "Bot", tasks=Tasks["test"])
+
+    proxy.sew(name="Test" + str(random.randint(1, 3)) + "Bot", tasks=Tasks["test"])
 
     logger.success("ShadowBot created")
 
