@@ -11,14 +11,9 @@ test:
 	pipenv run mypy
 	pipenv run pytest
 
-clean logs:
-	rm -r shadow/logs/server/
-	rm -r shadow/logs/client/
-
-clean cache:
-	rm shadow/cache/*
-	rm .pytest_cache/*
-	rm .mypy_cache/*
+clean:
+	rm -r .pytest_cache/*
+	rm -r shadow/logs/*
 
 run:
 	python3 -m shadow

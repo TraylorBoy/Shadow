@@ -2,12 +2,23 @@
 
 import asyncio
 
+from datetime import datetime
+
 from functools import partial
 
 from typing import Any, Dict, Optional
 
 from shadow.interface import IShadowNetwork
 from shadow.network import ShadowNetwork
+
+from loguru import logger
+
+# Setup log file
+logger.add(
+    f"shadow/logs/client/{datetime.now().month}_{datetime.now().day}_{datetime.now().year}.log",
+    rotation="500 MB",
+    enqueue=True,
+)
 
 class ShadowProxy(IShadowNetwork):
 
