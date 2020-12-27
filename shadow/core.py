@@ -4,23 +4,11 @@ import os
 import click
 import dill
 
-from datetime import datetime
-
 from shell import shell
 
 from typing import Optional, Tuple, Any, Dict
 
 from shadow import ShadowProxy, Needles
-
-from loguru import logger
-
-# Setup log file
-logger.add(
-    f"shadow/logs/client/{datetime.now().month}_{datetime.now().day}_{datetime.now().year}.log",
-    rotation="500 MB",
-    enqueue=True,
-    filter="core.py"
-)
 
 class Core(object):
 

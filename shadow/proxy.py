@@ -2,6 +2,8 @@
 
 import asyncio
 
+from datetime import datetime
+
 from functools import partial
 
 from typing import Any, Dict, Optional
@@ -9,7 +11,18 @@ from typing import Any, Dict, Optional
 from shadow.interface import IShadowNetwork
 from shadow.network import ShadowNetwork
 
+from loguru import logger
 
+def client_log(record):
+    return record["name"] in ["shadow.proxy", "shadow.core"]
+
+# Setup log file
+logger.add(
+    f"shadow/logs/client/{datetime.now().month}_{datetime.now().day}_{datetime.now().year}.log",
+    rotation="500 MB",
+    enqueue=True,
+    filter=client_log
+)
 class ShadowProxy(IShadowNetwork):
 
     """ShadowNetwork Proxy class"""
@@ -50,7 +63,11 @@ class ShadowProxy(IShadowNetwork):
             [Any]: Server response
         """
 
+        logger.info(f"Sending message to server: {message}")
+
         response: Any = asyncio.run(self.network.send(message))
+
+        logger.success(f"Received response: {response}")
 
         return response
 
