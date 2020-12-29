@@ -12,6 +12,9 @@ from shadow.interface import IShadowBot
 
 from loguru import logger
 
+# TODO - Run ShadowClone listeners on startup for core method
+
+
 class ShadowBot(IShadowBot):
 
     """Master class for running tasks performed by ShadowClones (slaves)"""
@@ -44,6 +47,7 @@ class ShadowBot(IShadowBot):
 
         self.id: str = name
         self.on: bool = False
+        self.tasks: Dict[str, partial] = tasks
 
         self.setup(tasks)
 
@@ -56,7 +60,7 @@ class ShadowBot(IShadowBot):
 
         logger.debug("Setting up")
 
-        self.soul: mp.Process = mp.Process(target=self.core, name=self.id, daemon=True)
+        self.soul: mp.Process = mp.Process(target=self.core)
 
         self.pipe: Dict[str, mp.Queue] = {
             "task": mp.Queue(),
@@ -64,19 +68,23 @@ class ShadowBot(IShadowBot):
             "result": mp.Queue(),
             "event": mp.Queue(),
             "response": mp.Queue(),
+            "compile": mp.Queue(),
         }
 
         self.events: Dict[str, Callable] = {
             "kill": self.stop,
             "task": self.perform,
-            "compile": self.get,
-            "wait": self.wait
+            "get": self.get,
+            "wait": self.wait,
         }
 
+        # Delegate tasks
         self.clones: Dict[str, Dict[str, Optional[Any]]] = {}
 
         for signal, task in tasks.items():
-            self.clones[signal] = ShadowClone(id=signal, pipe=self.pipe["result"], task=task)
+            self.clones[signal] = ShadowClone(
+                id=signal, pipe=self.pipe["result"], task=task
+            )
 
     def shadow_clone_jutsu(self, task: str):
         """Wraps the ShadowClone's perform method to run in a seperate Thread
@@ -122,8 +130,7 @@ class ShadowBot(IShadowBot):
         return self.soul.is_alive()
 
     def kill(self):
-        """Stop the running ShadowBot process
-        """
+        """Stop the running ShadowBot process"""
 
         if self.alive():
             logger.info("Sending kill signal to ShadowBot")
@@ -131,7 +138,9 @@ class ShadowBot(IShadowBot):
             # Warn of zombie clones
             for task, clone in self.clones.items():
                 if clone.alive():
-                    logger.warning(f"{task} is unfinshed, {clone} still alive") # pragma: no cover
+                    logger.warning(
+                        f"{task} is unfinshed, {clone} still alive"
+                    )  # pragma: no cover
 
             # Send a kill signal
             self.pipe["event"].put("kill", block=True)
@@ -139,16 +148,14 @@ class ShadowBot(IShadowBot):
             self.soul.join()
 
     def stop(self):
-        """Transitions state from on to off
-        """
+        """Transitions state from on to off"""
 
         logger.warning("Shutting down")
 
         self.on = False
 
     def start(self):
-        """Transitions state from off to on and starts the ShadowBot's process
-        """
+        """Transitions state from off to on and starts the ShadowBot's process"""
 
         logger.info("Starting up")
 
@@ -156,25 +163,15 @@ class ShadowBot(IShadowBot):
 
         if not self.alive():
 
-            self.soul.start()
+            try:
 
-    @logger.catch
-    def core(self):
-        """Method is called when the process is started
-        """
+                self.soul.start()
 
-        while self.on:
-            if not self.on: # pragma: no cover
-                logger.warning("Terminating process")
-                break
-
-            # Listen for events
-            if self.listen():
-                logger.info("Event handled")
+            except AssertionError:
+                raise AssertionError
 
     def wait(self):
-        """Waits for ShadowClone to finish performing the task sent to the wait pipe
-        """
+        """Waits for ShadowClone to finish performing the task sent to the wait pipe"""
 
         if not self.pipe["wait"].empty():
             wait_for: str = self.pipe["wait"].get(block=True)
@@ -210,6 +207,33 @@ class ShadowBot(IShadowBot):
 
         return False
 
+    def compile(self):
+        """Waits for task to complete and routes the result to the response pipe"""
+
+        if not self.pipe["compile"].empty():
+
+            task: str = self.pipe["compile"].get(block=True)
+
+            logger.info(f"Compiling: {task}")
+
+            self.pipe["wait"].put(task, block=True)
+            self.wait()
+
+            result_compiled: bool = self.get()
+
+            if result_compiled:
+                if not self.pipe["response"].empty():
+                    # Retrieve the name of the task completed and its result
+                    task_name, result = self.pipe["response"].get()
+
+                    logger.success(f"{task_name} finished with result: {result}")
+
+                    return (task_name, result)
+
+            logger.warning(f"Failed to compile {task}")
+
+            return None
+
     def listen(self):
         """Retrieves event from event pipe and handles it
 
@@ -232,3 +256,24 @@ class ShadowBot(IShadowBot):
 
         return False
 
+    def reset(self):
+        """Re-instantiates the ShadowBot's process"""
+
+        logger.debug(f"Resetting soul: {self.soul}")
+
+        self.__init__(name=self.id, tasks=self.tasks)
+
+        logger.debug(f"Soul reset: {self.soul}")
+
+    @logger.catch
+    def core(self):
+        """Method is called when the process is started"""
+
+        while self.on:
+            if not self.on:  # pragma: no cover
+                logger.warning("Terminating process")
+                break
+
+            # Listen for events
+            if self.listen():
+                logger.info("Event handled")

@@ -6,6 +6,7 @@ from functools import partial
 
 from abc import ABC, abstractmethod
 
+
 class IShadowNetwork(ABC):
 
     """ShadowNetwork Interface"""
@@ -31,8 +32,9 @@ class IShadowNetwork(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def signal(self, name: str, event: str, task: str, wait: bool = False):
+    def signal(self, name: str, event: str, task: str):
         raise NotImplementedError()
+
 
 class IShadowBot(ABC):
 

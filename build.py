@@ -25,7 +25,7 @@ def main():
 
     proxy: ShadowProxy = ShadowProxy(host="127.0.0.1", port=8888)
 
-    proxy.sew(name="Test" + str(random.randint(1, 3)) + "Bot", tasks=Tasks["test"])
+    proxy.sew(name="TestBot - " + str(random.randint(1, 3)), tasks=Tasks["test"])
 
     logger.success("ShadowBot created")
 

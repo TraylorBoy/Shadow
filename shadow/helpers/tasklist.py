@@ -17,13 +17,8 @@ def flip(var: bool = True):
 
     return not var
 
-TEST: Dict[str, partial] = {
-    "flip": partial(flip)
-}
+
+TEST: Dict[str, partial] = {"flip": partial(flip)}
 
 
-Tasks: Dict[str, Dict[str, partial]] = {
-
-    "test": TEST
-
-}
+Tasks: Dict[str, Dict[str, partial]] = {"test": TEST}

@@ -12,6 +12,7 @@ from shadow.interface import IShadowBot
 
 from loguru import logger
 
+
 class ShadowClone(IShadowBot):
 
     """Slave class for perfoming tasks on seperate threads for the ShadowBot instance"""
@@ -30,8 +31,7 @@ class ShadowClone(IShadowBot):
         self.soul: Optional[Thread] = None
 
     def perform(self):
-        """Calls assigned task and puts the result in the pipe set during initialization
-        """
+        """Calls assigned task and puts the result in the pipe set during initialization"""
 
         self.soul = current_thread()
 
@@ -46,9 +46,11 @@ class ShadowClone(IShadowBot):
 
             logger.debug(f"Completed task, result: {result}")
 
-        except Exception as e: # pragma: no cover
+        except Exception as e:  # pragma: no cover
 
-            logger.warning(f"Error occured while performing task: {self.master} - {self.name} - {self.task}")
+            logger.warning(
+                f"Error occured while performing task: {self.master} - {self.name} - {self.task}"
+            )
             logger.exception(e)
 
     def alive(self):
@@ -84,4 +86,3 @@ class ShadowClone(IShadowBot):
                 return True
 
         return False
-

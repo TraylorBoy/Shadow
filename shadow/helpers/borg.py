@@ -1,8 +1,9 @@
 """Singleton pattern helper class"""
 
-#https://github.com/faif/python-patterns/blob/master/patterns/creational/borg.py
+# https://github.com/faif/python-patterns/blob/master/patterns/creational/borg.py
 
 from typing import Dict, Any
+
 
 class Borg:
 
@@ -18,4 +19,3 @@ class Borg:
         """
 
         self.__dict__ = self._shared_state
-

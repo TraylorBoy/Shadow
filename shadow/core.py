@@ -1,8 +1,11 @@
 """Command line application for the Shadow project"""
 
+from asyncio.events import AbstractEventLoop
 import os
 import click
 import dill
+import time
+import asyncio
 
 from shell import shell
 
@@ -10,25 +13,28 @@ from typing import Optional, Tuple, Any, Dict
 
 from shadow import ShadowProxy, Needles
 
+
 class Core(object):
 
-    """Application entry point"""
+    """Application entry point
+
+    Provides a simple facade for the Shadow package
+    """
 
     def __init__(self):
         """Setup the interactive console"""
 
-        self.proxy: Optional[ShadowProxy] = None
-        self.settings: Optional[Tuple[str, int]] = None
-
+        self.host, self.port = "127.0.0.1", 8888
         self.load()
 
     def load(self):
-        """Loads settings from cache
-        """
+        """Loads settings from cache"""
 
         if os.path.exists("shadow/data/cache/connection.cache"):
             with open("shadow/data/cache/connection.cache", "rb") as cache_file:
-                self.settings: Optional[Tuple[str, int]] = dill.load(cache_file)
+                self.host, self.port = dill.load(cache_file)
+
+        self.proxy: ShadowProxy = ShadowProxy(self.host, self.port)
 
     def store(self, value: Any):
         """Caches value
@@ -40,26 +46,7 @@ class Core(object):
         with open("shadow/data/cache/connection.cache", "wb") as cache_file:
             dill.dump(value, cache_file)
 
-    def connect(proxy, *args, **kwargs):
-        """Opens a connection to the server for the decorated function
-
-        Args:
-            proxy ([type]): [description]
-        """
-
-        def connection(self, *args, **kwargs):
-            if self.settings is not None:
-                host, port = self.settings
-            else:
-                host, port = "127.0.0.1", 8888
-
-            self.proxy = ShadowProxy(host, port)
-
-            proxy(self, *args, **kwargs)
-
-        return connection
-
-# --------------------------------- Commands --------------------------------- #
+    # --------------------------------- Commands --------------------------------- #
 
     def serve(self, host: str, port: int):
         """Starts running the server on the given host and port
@@ -69,26 +56,25 @@ class Core(object):
             port (int): Port to communicate with the server
         """
 
-        self.proxy = ShadowProxy(host, port)
+        self.proxy: ShadowProxy = ShadowProxy(host, port)
 
         self.store(value=(host, port))
 
         self.proxy.serve()
 
     def reset(self):
-        """Removes settings from cache
-        """
+        """Removes settings from cache"""
 
         click.echo("Restoring default settings...")
 
-        os.remove("shadow/data/cache/connection.cache")
+        if os.path.exists("shadow/data/cache/connection.cache"):
+            os.remove("shadow/data/cache/connection.cache")
 
         # Remove stored ShadowBots
         Needles().reset()
 
         click.echo("Restored")
 
-    @connect
     def send(self, message: Dict[str, Optional[Any]]):
         """Sends a message to the server
 
@@ -96,9 +82,10 @@ class Core(object):
             message (str): Message to send to the server
         """
 
-        click.echo(self.proxy.send(message))
+        response: Optional[Dict[str, Optional[Any]]] = self.proxy.send(message)
 
-    @connect
+        return response
+
     def retract(self, name: str):
         """Removes the sewn ShadowBot from the network
 
@@ -106,58 +93,79 @@ class Core(object):
             name (str): Name used to identify the ShadowBot
         """
 
-        self.proxy.retract(name)
+        response: Optional[Dict[str, Optional[Any]]] = self.proxy.retract(name)
 
-    @connect
+        return response
+
     def kill(self):
-        """Stops the running server
+        """Stops the running server"""
+
+        response: Optional[Dict[str, Optional[Any]]] = self.proxy.kill()
+
+        return response
+
+    def signal(self, name: str, event: str, task: str):
+        """Sends a signal to the running ShadowBot process
+
+        Args:
+            name (str): Name used to identify the ShadowBot
+            event (str): Event for ShadowBot to handle
+            task (str): Task for ShadowBot to perform
         """
 
-        self.proxy.kill()
+        response: Optional[Dict[str, Optional[Any]]] = self.proxy.signal(
+            name, event, task
+        )
 
-core: Core = Core()
+        return response
+
+    def status(self):
+        """Sends a status event to the running ShadowBot"""
+
+        message: Dict[str, Optional[Any]] = {"event": "status", "data": None}
+
+        response: Optional[Any] = self.send(message)
+
+        return response
+
 
 @click.group()
 def Shadow():
-    """Click group entry point
-    """
+    """Click group entry point"""
 
     pass
+
 
 @Shadow.command()
 @click.option("--host", default="127.0.0.1", help="Host to run server on")
 @click.option("--port", default=8888, help="Port to server communicates on")
 def serve(host, port):
-    """Start the ShadowNetwork
-    """
+    """Start the ShadowNetwork"""
 
+    core: Core = Core()
     core.serve(host, port)
+
 
 @Shadow.command()
 def status():
-    """Sends a status message to the server
-    """
+    """Sends a status message to the server"""
 
-    message: Dict[str, Optional[Any]] = {
-        "event": "status",
-        "data": None
-    }
+    Core().status()
 
-    core.send(message)
 
 @Shadow.command()
 def kill():
-    """Stops the running server
-    """
+    """Stops the running server"""
 
-    core.kill()
+    Core().kill()
+
 
 @Shadow.command()
 def reset():
-    """Removes ShadowBots from the server and cache files
-    """
+    """Removes ShadowBots from the server and cache files"""
 
-    core.reset()
+    Core().reset()
+
 
 @Shadow.command()
 def sew():
@@ -169,34 +177,63 @@ def sew():
 
     shell("python build.py")
 
+
 @Shadow.command()
 @click.argument("name")
 def retract(name):
-    """Removes ShadowBot from the server
-    """
+    """Removes ShadowBot from the server"""
 
-    core.retract(name)
+    Core().retract(name)
+
 
 # TODO - Bot Group
 
+
 @Shadow.group()
 def bot():
-    """Bot communication
-    """
-
+    """Bot communication"""
     pass
 
+
 @bot.command()
-def start():
+@click.argument("name")
+def start(name):
+    """Starts the ShadowBot's process
+
+    Args:
+        name ([str]): Name of the ShadowBot to start
+    """
+
+    # TODO - Non-blocking start
+    click.echo(
+        "Once the bot is started, press ctrl-c to exit the start process. The ShadowBot will still be running (currently in my TODO list for non-blocking start up)"
+    )
+
+    Core().signal(name=name, event="start", task="")
+
+
+@bot.command()
+@click.argument("name")
+def stop(name):
     click.echo("Not implemented yet")
+
+    Core().signal(name=name, event="kill", task="")
+
+
+@bot.command()
+def alive():
+    click.echo("Not implemented yet")
+
 
 @bot.command()
 def perform():
     click.echo("Not implemented yet")
 
+
 @bot.command()
 def wait():
     click.echo("Not implemented yet")
+
 
 @bot.command()
 def compile():

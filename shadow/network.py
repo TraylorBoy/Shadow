@@ -1,15 +1,16 @@
 """Creates a network of ShadowBots"""
 
-import shadow
 import sys
 import asyncio
 import dill
+
+from threading import Thread
 
 from datetime import datetime
 
 from functools import partial
 
-from typing import Optional, Any, Dict, Callable, List
+from typing import Optional, Any, Dict, Callable, List, Tuple
 
 from shadow.helpers import Borg
 from shadow.interface import IShadowNetwork
@@ -204,15 +205,18 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
         data: Optional[Any] = await self.read(reader)
 
+        response: Optional[Dict[str, Optional[Any]]] = None
+
         if data:
+
+            response = dill.loads(b"".join(data))
+
             # Close connection
             writer.close()
             await writer.wait_closed()
 
-            response: Optional[Any] = dill.loads(b"".join(data))
-
-            # Return response
-            return response
+        # Return response
+        return response
 
     async def kill(self):
         """Sends a kill event to the server
@@ -220,7 +224,7 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
         message: Dict[str, Optional[Any]] = {"event": "kill", "data": None}
 
-        await self.send(message)
+        return await self.send(message)
 
     async def sew(self, name: str, tasks: Dict[str, partial]):
         """Build wrapper for proxy
@@ -237,7 +241,7 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
         }
 
-        await self.send(message)
+        return await self.send(message)
 
     async def retract(self, name: str):
         """Sends a message to the network to retract a sewn ShadowBot from the network
@@ -253,16 +257,15 @@ class ShadowNetwork(Borg, IShadowNetwork):
             }
         }
 
-        await self.send(message)
+        return await self.send(message)
 
-    async def signal(self, name: str, event: str, task: str, wait: bool = False):
+    async def signal(self, name: str, event: str, task: str):
         """Signals an event to ShadowBot on the network
 
         Args:
             name (str): Name used to identify the ShadowBot
             event (str): Event for ShadowBot to handle
             task (str): Task for ShadowBot to perform
-            wait (bool): Wait for the task to complete or not
         """
 
         logger.info(f"Sending {event} signal to ShadowBot: {name}")
@@ -272,12 +275,11 @@ class ShadowNetwork(Borg, IShadowNetwork):
             "data": {
                 "name": name,
                 "event": event,
-                "task": task,
-                "wait": wait
+                "task": task
             }
         }
 
-        await self.send(message)
+        return await self.send(message)
 
 
 # --------------------------------- Handlers --------------------------------- #
@@ -364,17 +366,7 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
         await self.write(response, writer)
 
-    async def __start_up(self, writer: asyncio.StreamWriter, name: str):
-        """Starts running the ShadowBot's process
-
-        Args:
-            writer (asyncio.StreamWriter): Write socket
-            name (str): Name used to identify the ShadowBot
-        """
-
-        pass
-
-    async def __signal(self, writer: asyncio.StreamWriter, name: str, event: str, task: str, wait: bool = False):
+    async def __signal(self, writer: asyncio.StreamWriter, name: str, event: str, task: str):
         """Sends a signal to the running ShadowBot process
 
         Args:
@@ -382,7 +374,6 @@ class ShadowNetwork(Borg, IShadowNetwork):
             name (str): Name used to identify the ShadowBot
             event (str): Event for ShadowBot to handle
             task (str): Task for ShadowBot to perform
-            wait (bool): Wait for the task to complete or not
         """
 
         if self.needles.check(name):
@@ -390,9 +381,164 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
             shadowbot: ShadowBot = self.needles.get(name)
 
-            if not shadowbot.alive():
-                logger.critical(f"{name}: is Dead, please start the ShadowBot first")
+            # TODO - Move to Proxy
+            # Event can be:
+            # start - Start running ShadowBot process
+            # kill - Stop running ShadowBot process
+            # task - ShadowBot performs task, get - Get result from ShadowBot
+            # wait - Wait for result from ShadowBot
+            bot_handlers: Dict[str, Callable] = {
+                "start": self.start_bot,
+                "kill": None,
+                "task": None,
+                "get": None,
+                "wait": None,
+                "status": None
+            }
+
+            if event in bot_handlers.keys():
+                if not shadowbot.alive() and event != "start":
+                    # TODO - Send error response message
+                    logger.critical(f"{name}: is Dead, please start the ShadowBot first")
+                else:
+
+                    response: Optional[Dict[str, Optional[Any]]] = bot_handlers[event](bot=shadowbot, )
+                    await self.write(response, writer)
+
+# ------------------------------- Bot Handlers ------------------------------- #
+
+    # FUCK YEH
+    async def control_bot(self, command: str):
+        """Wraps signal in the form of a command
+
+        Args:
+            command (str): Command for the Bot to perform on the network
+        """
+
+        # Compile - Perform + Wait + Get = Result
+        commands: List[str] = ["start", "kill", "status", "compile"]
+
+        if command in commands:
+            bot_handlers: Dict[str, Callable] = {
+                "start": self.start_bot,
+                "kill": self.stop_bot,
+                "status": self.status_bot,
+                "compile": self.comp
+            }
 
 
+            handle: Callable = bot_handlers[command]
 
+    # TODO - Docstring
+    async def link_bot(self, name: str):
+        """[summary]
+
+        Args:
+            name (str): [description]
+
+        Returns:
+            [type]: [description]
+        """
+
+
+        if self.needles.check(name):
+            return self.needles.get(name)
+
+    # TODO - Test
+
+    async def start_bot(self, bot: ShadowBot):
+        """Starts running ShadowBot process on the network
+
+        Args:
+            bot (ShadowBot): ShadowBot to start
+        """
+
+        logger.info(f"Starting ShadowBot: {bot.id}")
+
+        try:
+
+            Thread(target=bot.start, daemon=True).start() if not bot.alive() else logger.warning(f"{bot.id} is already alive")
+
+        except AssertionError:
+            # Reset ShadowBot process
+            bot.reset()
+            Thread(target=bot.start, daemon=True).start()
+
+        logger.success(f"{bot} is now running")
+
+        return True
+
+    async def stop_bot(self, bot: ShadowBot):
+
+
+        logger.info(f"Killing ShadowBot: {bot.id}")
+
+        # Send kill signal
+        bot.pipe["event"].put("kill", block=True)
+
+        if not bot.alive():
+            logger.success(f"{bot.id}is Dead")
+
+    async def status_bot(self, bot: ShadowBot):
+
+        response: Dict[str, Optional[Any]] = {
+            "event": "signal",
+            "data": {"alive": shadowbot.alive()}
+        }
+
+        await self.write(response, writer)
+
+    async def wait_bot(self, bot: ShadowBot):
+
+        shadowbot: ShadowBot = bot
+
+        # Put the task to wait for in queue
+        shadowbot.pipe["wait"].put(task, block=True)
+
+        # Signal ShadowBot to wait for task
+        shadowbot.pipe["event"].put("wait", block=True)
+
+    async def perform_bot(self, bot: ShadowBot, task: str):
+        """Assigns a task for ShadowBot to perform
+
+        Args:
+            bot (ShadowBot): ShadowBot to perform the task
+            task (str): Task to be executed on a seperate thread
+        """
+
+        bot.pipe["task"].put(task, block=True)
+
+        bot.pipe["event"].put("task", block=True)
+
+    async def compile_bot(self, bot: ShadowBot, task: str):
+        """[summary]
+
+        Args:
+            bot (ShadowBot): [description]
+        """
+
+        logger.info(f"Retrieving result for task: {task}")
+
+        # Have ShadowBot perform task, and wait for result
+        bot.pipe["compile"].put(task, block=True)
+
+        # Compile result
+        result: Optional[Tuple[str, Optional[Any]]] = bot.compile()
+
+        if result is not None:
+
+            task_name, value = result
+
+            logger.success(f"Sending compiled result: {task_name}: {value}")
+
+            response: Dict[str, Optional[Any]] = {
+                "event": "signal",
+                "data": {"task": task_name, "result": value}
+            }
+
+            return response
+
+        else:
+
+            logger.info(f"Failed to compile result for {task}")
 

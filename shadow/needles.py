@@ -12,6 +12,7 @@ from typing import Dict, List
 
 from loguru import logger
 
+
 class Needles(object):
 
     """Manages ShadowBots on the ShadowNetwork"""
@@ -28,8 +29,7 @@ class Needles(object):
         for _, bot in self.needles.items():
             bot_info += str(bot)
 
-        _needle_str: str =\
-        f"""
+        _needle_str: str = f"""
         Needles: {self.count()}
         -----------------------
         {bot_info}
@@ -38,8 +38,7 @@ class Needles(object):
         return _needle_str
 
     def __init__(self):
-        """Sets initial needles state
-        """
+        """Sets initial needles state"""
 
         self.needles: Dict[str, ShadowBot] = {}
         self.__cache_file: str = "needles.cache"
@@ -100,8 +99,7 @@ class Needles(object):
         return os.path.exists(self.__path)
 
     def load(self):
-        """Loads the needles dictionary from cache
-        """
+        """Loads the needles dictionary from cache"""
 
         logger.debug(f"Loading Needles from cache")
 
@@ -116,8 +114,7 @@ class Needles(object):
         logger.debug(f"Needles loaded: {self.needles}")
 
     def save(self):
-        """Stores needles dictionary in cache
-        """
+        """Stores needles dictionary in cache"""
 
         logger.debug(f"Storing Needles in cache")
 
@@ -137,10 +134,9 @@ class Needles(object):
         logger.debug(f"Needles stored")
 
     def reset(self):
-        """Removes cache file at __path
-        """
+        """Removes cache file at __path"""
 
-        os.remove(self.__path)
+        os.remove(self.__path) if os.path.exists(self.__path) else None
 
     def check(self, name: str):
         """Checks if ShadowBot is registered

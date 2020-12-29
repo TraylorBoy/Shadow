@@ -8,8 +8,9 @@ from functools import partial
 
 from typing import Any, Dict, Optional
 
-from shadow.interface import IShadowNetwork
+from shadow.interface import IShadowNetwork, IShadowBot
 from shadow.network import ShadowNetwork
+from shadow.bot import ShadowBot
 
 from loguru import logger
 
@@ -23,6 +24,7 @@ logger.add(
     enqueue=True,
     filter=client_log
 )
+
 class ShadowProxy(IShadowNetwork):
 
     """ShadowNetwork Proxy class"""
@@ -36,6 +38,7 @@ class ShadowProxy(IShadowNetwork):
         """
 
         self.network: ShadowNetwork = ShadowNetwork(host, port)
+        self.bot: Optional[ShadowBot] = None
 
     def serve(self): # pragma: no cover
         """Start running the server
@@ -43,7 +46,7 @@ class ShadowProxy(IShadowNetwork):
 
         asyncio.run(self.network.serve())
 
-    def send(self, message: Dict[str, Optional[Any]]): # pragma: no cover
+    def send(self, message: Dict[str, Optional[Any]]):
         """Sends a message to the server
 
         Args:
@@ -65,17 +68,23 @@ class ShadowProxy(IShadowNetwork):
 
         logger.info(f"Sending message to server: {message}")
 
-        response: Any = asyncio.run(self.network.send(message))
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
-        logger.success(f"Received response: {response}")
+        response: Optional[Dict[str, Optional[Any]]] = loop.run_until_complete(self.network.send(message))
+
+        logger.success(f"Response received: {response}")
 
         return response
 
-    def kill(self): # pragma: no cover
+    def kill(self):
         """Stop running the server
         """
 
-        asyncio.run(self.network.kill())
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+
+        response: Optional[Dict[str, Optional[Any]]] = loop.run_until_complete(self.network.kill())
+
+        return response
 
     def sew(self, name: str, tasks: Dict[str, partial]):
         """Sends the server information to build a ShadowBot
@@ -85,7 +94,11 @@ class ShadowProxy(IShadowNetwork):
             tasks (Dict[str, partial]): Tasks for the ShadowBot to perform on the server
         """
 
-        asyncio.run(self.network.sew(name, tasks))
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+
+        response: Optional[Dict[str, Optional[Any]]] = loop.run_until_complete(self.network.sew(name, tasks))
+
+        return response
 
     def retract(self, name: str):
         """Signals the network to remove the sewn ShadowBot
@@ -94,17 +107,43 @@ class ShadowProxy(IShadowNetwork):
             name (str): Name used to identify the ShadowBot
         """
 
-        asyncio.run(self.network.retract(name))
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
-    def signal(self, name: str, event: str, task: str, wait: bool = False):
+        response: Optional[Dict[str, Optional[Any]]] = loop.run_until_complete(self.network.retract(name))
+
+        return response
+
+    def signal(self, name: str, event: str, task: str):
         """Sends a signal to the running ShadowBot process
 
         Args:
             name (str): Name used to identify the ShadowBot
             event (str): Event for ShadowBot to handle
             task (str): Task for ShadowBot to perform
-            wait (bool): Wait for the task to complete or not
         """
 
-        asyncio.run(self.network.signal(name, event, task, wait))
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
+        response: Optional[Dict[str, Optional[Any]]] = loop.run_until_complete(self.network.signal(name, event, task))
+
+        return response
+
+    def link(self, name: str): # TODO
+        """Sets up the proxy for direct communication with ShadowBot on the network
+
+        Args:
+            name (str): Name used to identify the ShadowBot
+        """
+
+        # Get needles from server
+        needles: Dict[str, Optional[Any]] = self.network.send()
+        pass
+
+    def perform(self): # TODO
+
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+
+        pass
+
+        """try:
+            loop.run_until_complete(self.network.)"""
