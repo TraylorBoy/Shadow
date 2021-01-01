@@ -1,71 +1,52 @@
-
-import time
-import shadow
 import pytest
+import time
 
-from multiprocessing import Process
-from shell import shell
+from shadow.bot import ShadowBot
+from shadow.proxy import ShadowBotProxy
+from shadow.helpers import Tasks
 
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Tuple
 
-# ---------------------------------------------------------------------------- #
-#                                    Helpers                                   #
-# ---------------------------------------------------------------------------- #
+def test_bot():
 
-# ---------------------------------------------------------------------------- #
-#                                   Fixtures                                   #
-# ---------------------------------------------------------------------------- #
+    bot: ShadowBot = ShadowBot(name="TestBot", tasks=Tasks["test"])
 
-@pytest.fixture
-def proxy():
-    return shadow.proxy.ShadowProxy()
+    assert bot.id == "TestBot"
+    assert bot.manager is Tasks["test"]
 
-@pytest.fixture
-def tasks():
-    return shadow.helpers.Tasks
+    bot.start()
+    assert bot.alive()
+    assert bot.start() is None
 
-@pytest.fixture
-def server():
+    bot.stop()
+    assert not bot.alive()
+    assert bot.stop() is None
 
-    p: Process = Process(target=shell, args=("shadow serve",), daemon=True)
-    p.start()
+    bot.start()
+    assert bot.alive()
 
-    time.sleep(1)
-    return p
+    bot.request(type="perform", task="flip")
+    bot.request(type="wait", task="flip")
 
-# ---------------------------------------------------------------------------- #
-#                                     Tests                                    #
-# ---------------------------------------------------------------------------- #
+    task, result = bot.response()
 
-def test_bot_proxy(proxy, tasks):
+    assert task == "flip" and result == False
 
-    pass
+    bot.stop()
+    assert not bot.alive()
 
-def test_proxy(proxy, tasks, server):
+def test_bot_proxy():
 
-    assert server.is_alive()
+    proxy: ShadowBotProxy = ShadowBotProxy(name="TestBot", tasks=Tasks["test"])
 
-    response: Optional[Dict[str, Optional[Any]]] = proxy.send(message={
-        "event": "status",
-        "data": None
-    })
+    proxy.start()
+    assert proxy.alive()
 
-    assert response["data"]["server"] == "Alive"
+    proxy.perform(task="flip")
 
-    response = proxy.sew(name="Test", tasks=tasks["test"])
+    task, result = proxy.wait(task="flip")
 
-    assert "Test" in response["data"]
+    assert task == "flip" and result == False
 
-    response = proxy.signal(name="Test", event="status", task="")
-
-    assert not response["data"]["alive"]
-
-    response = proxy.retract(name="Test")
-
-    assert "Test" in response["data"]["needle"].keys()
-
-    response = proxy.kill()
-
-    server.join()
-
-    assert response["data"] == "Shutting down"
+    proxy.stop()
+    assert not proxy.alive()

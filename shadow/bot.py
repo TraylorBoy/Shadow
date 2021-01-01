@@ -1,6 +1,8 @@
 """Task Manager"""
 
+import time
 import multiprocessing as mp
+
 from threading import Thread
 
 from functools import partial
@@ -11,9 +13,6 @@ from shadow.clone import ShadowClone
 from shadow.interface import IShadowBot
 
 from loguru import logger
-
-# TODO - Run ShadowClone listeners on startup for core method
-
 
 class ShadowBot(IShadowBot):
 
@@ -47,223 +46,134 @@ class ShadowBot(IShadowBot):
 
         self.id: str = name
         self.on: bool = False
-        self.tasks: Dict[str, partial] = tasks
+        self.manager: Dict[str, partial] = tasks
 
-        self.setup(tasks)
+        self.setup()
 
-    def setup(self, tasks: Dict[str, partial]):
-        """Instantiates the ShadowBot's process, message queues, event factory, and task workers (ShadowClones)
-
-        Args:
-            tasks (Dict[str, partial]): Tasks to delegate to the ShadowClones
-        """
-
-        logger.debug("Setting up")
-
-        self.soul: mp.Process = mp.Process(target=self.core)
-
-        self.pipe: Dict[str, mp.Queue] = {
-            "task": mp.Queue(),
-            "wait": mp.Queue(),
-            "result": mp.Queue(),
-            "event": mp.Queue(),
-            "response": mp.Queue(),
-            "compile": mp.Queue(),
-        }
-
-        self.events: Dict[str, Callable] = {
-            "kill": self.stop,
-            "task": self.perform,
-            "get": self.get,
-            "wait": self.wait,
-        }
-
-        # Delegate tasks
-        self.clones: Dict[str, Dict[str, Optional[Any]]] = {}
-
-        for signal, task in tasks.items():
-            self.clones[signal] = ShadowClone(
-                id=signal, pipe=self.pipe["result"], task=task
-            )
-
-    def shadow_clone_jutsu(self, task: str):
+    def __shadow_clone_jutsu(self, task: str):
         """Wraps the ShadowClone's perform method to run in a seperate Thread
 
         Args:
             task (str): Task to be executed
-
-        Returns:
-            [Thread]: Threaded ShadowClone instance
         """
 
         logger.info("~Shadow Clone Jutsu~")
 
-        if task in self.clones.keys():
+        self.clones[task]["soul"] = Thread(target=self.clones[task]["clone"].perform, name=task)
 
-            shadowclone: Thread = Thread(target=self.clones[task].perform, name=task)
+        self.clones[task]["soul"].start()
 
-            return shadowclone
-
-    def perform(self):
-        """Performs task retrieved from the task queue
-
-        Returns:
-            [bool]: Task is being performed
-        """
-
-        if not self.pipe["task"].empty():
-
-            task: str = self.pipe["task"].get(block=True)
-
-            logger.debug(f"Performing task: {task}")
-
-            # Create the shadowclone's thread
-            self.shadow_clone_jutsu(task).start()
-
-    def alive(self):
-        """Checks if ShadowBot's process is running
-
-        Returns:
-            [bool]: Process is alive or not
-        """
-
-        return self.soul.is_alive()
-
-    def kill(self):
-        """Stop the running ShadowBot process"""
-
-        if self.alive():
-            logger.info("Sending kill signal to ShadowBot")
-
-            # Warn of zombie clones
-            for task, clone in self.clones.items():
-                if clone.alive():
-                    logger.warning(
-                        f"{task} is unfinshed, {clone} still alive"
-                    )  # pragma: no cover
-
-            # Send a kill signal
-            self.pipe["event"].put("kill", block=True)
-
-            self.soul.join()
-
-    def stop(self):
+    def __kill(self):
         """Transitions state from on to off"""
 
         logger.warning("Shutting down")
 
         self.on = False
 
+    def setup(self):
+        """Instantiates the ShadowBot's process, message queues, event factory, and task workers (ShadowClones)
+        """
+
+        logger.debug("Setting up")
+
+        self.soul: mp.Process = mp.Process(target=self.core, daemon=True)
+
+        self.results: mp.Queue = mp.Queue()
+        self.tasks: mp.Queue = mp.Queue()
+        self.compile: mp.Queue = mp.Queue()
+
+        self.requests: mp.Queue = mp.Queue()
+        self.responses: mp.Queue = mp.Queue()
+
+        # Delegate tasks
+        self.clones: Dict[str, Dict[str, Optional[Any]]] = {}
+
+        for signal, task in self.manager.items():
+            self.clones[signal] = {
+                "clone": ShadowClone(pipe=self.results, task=task),
+                "soul": None
+            }
+
+    def alive(self):
+        """Checks if ShadowBot process has started
+
+        Returns:
+            [bool]: Process is running or not
+        """
+        return self.soul.is_alive()
+
     def start(self):
         """Transitions state from off to on and starts the ShadowBot's process"""
+
+        if self.alive():
+            logger.warning("Already running")
+            return None
 
         logger.info("Starting up")
 
         self.on = True
 
-        if not self.alive():
+        try:
 
-            try:
+            self.soul.start()
 
-                self.soul.start()
+        except AssertionError:
+            # Process has been used previously, set a new one
+            self.restart()
 
-            except AssertionError:
-                raise AssertionError
+    def stop(self):
+        """Stop the running ShadowBot process"""
 
-    def wait(self):
-        """Waits for ShadowClone to finish performing the task sent to the wait pipe"""
+        if self.alive():
+            logger.info("Stopping")
 
-        if not self.pipe["wait"].empty():
-            wait_for: str = self.pipe["wait"].get(block=True)
+            # Send a kill signal
+            self.requests.put("stop", block=True)
+            self.soul.join()
 
-            for task, clone in self.clones.items():
-
-                if wait_for == task:
-                    logger.info(f"Waiting for {wait_for} to complete")
-
-                    if clone.alive():
-                        clone.wait()
-
-                    logger.info("Task complete")
-
-    def get(self):
-        """Retrieves result form pipe and sends it to the response pipe
-
-        Returns:
-            [bool]: Did retrieve result from pipe
-        """
-
-        if not self.pipe["result"].empty():
-
-            response: Tuple[str, Any] = self.pipe["result"].get(block=True)
-
-            logger.info(f"Received result: {response}")
-
-            self.pipe["response"].put(response, block=True)
-
-            logger.debug("Result redirected to response pipe")
-
-            return True
-
-        return False
-
-    def compile(self):
-        """Waits for task to complete and routes the result to the response pipe"""
-
-        if not self.pipe["compile"].empty():
-
-            task: str = self.pipe["compile"].get(block=True)
-
-            logger.info(f"Compiling: {task}")
-
-            self.pipe["wait"].put(task, block=True)
-            self.wait()
-
-            result_compiled: bool = self.get()
-
-            if result_compiled:
-                if not self.pipe["response"].empty():
-                    # Retrieve the name of the task completed and its result
-                    task_name, result = self.pipe["response"].get()
-
-                    logger.success(f"{task_name} finished with result: {result}")
-
-                    return (task_name, result)
-
-            logger.warning(f"Failed to compile {task}")
-
-            return None
-
-    def listen(self):
-        """Retrieves event from event pipe and handles it
-
-        Returns:
-            [bool]: Event retrieved and successfully handled
-        """
-
-        if not self.pipe["event"].empty():
-            event: str = self.pipe["event"].get(block=True)
-
-            logger.info(f"Event received: {event}")
-
-            if event in self.events.keys():
-
-                logger.info("Handling event")
-
-                self.events[event]()
-
-                return True
-
-        return False
-
-    def reset(self):
+    def restart(self):
         """Re-instantiates the ShadowBot's process"""
 
-        logger.debug(f"Resetting soul: {self.soul}")
+        logger.info("Restarting")
 
-        self.__init__(name=self.id, tasks=self.tasks)
+        self.__init__(name=self.id, tasks=self.manager)
 
-        logger.debug(f"Soul reset: {self.soul}")
+        self.start()
+
+    def perform(self):
+        """Performs task retrieved from the task queue
+
+        Args:
+            task (str): Task to be executed
+        """
+
+        if not self.tasks.empty():
+            task: str = self.tasks.get(block=True)
+
+            if task not in self.clones.keys():
+                logger.warning(f"Invalid task received: {task}")
+                return None
+
+            logger.info(f"Performing task: {task}")
+
+            # Create and start the shadowclone's thread
+            self.__shadow_clone_jutsu(task)
+
+    def wait(self):
+        """Waits for ShadowClone to finish performing the task
+        """
+
+        if not self.compile.empty():
+            task: str = self.compile.get(block=True)
+
+            if task not in self.clones.keys():
+                logger.warning(f"Invalid task received: {task}")
+                return None
+
+            if self.clones[task]["soul"] is not None and self.clones[task]["soul"].is_alive():
+
+                logger.info(f"Waiting for {task} to complete")
+                self.clones[task]["soul"].join()
 
     @logger.catch
     def core(self):
@@ -274,6 +184,53 @@ class ShadowBot(IShadowBot):
                 logger.warning("Terminating process")
                 break
 
-            # Listen for events
-            if self.listen():
-                logger.info("Event handled")
+            if not self.requests.empty():
+
+                requests: Dict[str, Callable] = {
+                    "stop": self.__kill,
+                    "perform": self.perform,
+                    "wait": self.wait
+                }
+
+                request: str = self.requests.get(block=True)
+
+                logger.info(f"Request received: {request}")
+
+                if request in requests.keys():
+                    requests[request]()
+
+            time.sleep(1)
+
+    @logger.catch
+    def request(self, type: str, task: Optional[str]):
+        """Sends a request to the ShadowBot
+
+        Args:
+            type (str): Type of request to send
+            task (Optional[str]): Task to send to the ShadowBot if the request type is "wait" or "perform"
+        """
+
+        if self.alive():
+            logger.info(f"Sending request: {type} - {task}")
+
+            # Either perform or wait for the result
+            self.tasks.put(task, block=True) if type == "perform" else self.compile.put(task, block=True)
+            self.requests.put(type, block=True)
+
+            time.sleep(1)
+
+    @logger.catch
+    def response(self):
+        """Check for a response from the ShadowBot
+
+        Returns:
+            [Optional[Tuple[str, any]]]: Result from the requested task
+        """
+
+        if not self.results.empty():
+            response: Tuple[str, Any] = self.results.get(block=True)
+
+            logger.info(f"Result compiled, sending response: {response}")
+
+            return response
+

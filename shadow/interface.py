@@ -1,6 +1,6 @@
 """Interfaces for the Shadow package"""
 
-from typing import Dict
+from typing import Dict, Optional
 
 from functools import partial
 
@@ -41,13 +41,21 @@ class IShadowBot(ABC):
     """ShadowBot Interface"""
 
     @abstractmethod
-    def perform(self):
+    def request(self, type: str, task: Optional[str]):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def response(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def start(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def stop(self):
         raise NotImplementedError()
 
     @abstractmethod
     def alive(self):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def wait(self):
         raise NotImplementedError()
