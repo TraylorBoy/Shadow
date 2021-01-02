@@ -1,14 +1,11 @@
 """Creates a network of ShadowBots"""
 
 import dill
-import time
 import socket
-
-from threading import Thread
 
 from datetime import datetime
 
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, Tuple
 
 from shadow.helpers import Borg
 from shadow.interface import IShadowNetwork
@@ -59,11 +56,11 @@ class ShadowNetwork(Borg, IShadowNetwork):
         if not hasattr(self, "needles"):
             self.needles: Needles = Needles()
 
-    def __write(self, message: Dict[str, Optional[Any]]):
+    def __write(self, message: Tuple[str, Optional[Any]]):
         """Connects to the server and writes the message
 
         Args:
-            message (Dict[str, Optional[Any]]): Message to write to the server
+            message (Tuple[str, Optional[Any]]): Message to write to the server
         """
 
         self.sock.connect((self.host, self.port))
@@ -106,14 +103,14 @@ class ShadowNetwork(Borg, IShadowNetwork):
         with self.server:
             self.server.shutdown()
 
-    def send(self, message: Dict[str, Optional[Any]]):
+    def send(self, message: Tuple[str, Optional[Any]]):
         """Sends a message to the running server instance
 
         Args:
-            message (Dict[str, Optional[Any]]): Message to send to the server
+            message (Tuple[str, Optional[Any]]): Message to send to the server
 
         Returns:
-            [Optional[Dict[str, Optional[Any]]]]: Response received from the server
+            [Optional[Tuple[str, Optional[Any]]]: Response received from the server
         """
 
         with self.server:

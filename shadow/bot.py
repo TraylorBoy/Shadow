@@ -214,8 +214,7 @@ class ShadowBot(IShadowBot):
             logger.info(f"Sending request: {type} - {task}")
 
             # Either perform or wait for the result
-            if task is not None:
-                self.tasks.put(task, block=True) if type == "perform" else self.compile.put(task, block=True)
+            self.tasks.put(task, block=True) if type == "perform" else self.compile.put(task, block=True)
 
             self.requests.put(type, block=True)
 

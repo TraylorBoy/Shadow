@@ -7,7 +7,7 @@ from shadow import ShadowBot, ShadowBotProxy, ShadowClone, ShadowNetwork
 from shadow.helpers import Tasks
 
 
-from typing import Dict, Optional, Any
+from typing import Optional, Any, Tuple
 
 @pytest.fixture
 def result_que():
@@ -81,13 +81,11 @@ def test_network():
     t.daemon = True
     t.start()
 
-    message: Dict[str, Optional[Any]] = {
-        "event": "shutdown"
-    }
+    message: Tuple[str, Optional[Any]] = ("shutdown", None)
 
-    response: Optional[Dict[str, Optional[Any]]] = network.send(message)
+    event, data = network.send(message)
 
-    assert response["event"] == "SHUTDOWN" and response["data"] == True
+    assert event == "SHUTDOWN" and data == True
 
     if t.is_alive():
         network.kill()

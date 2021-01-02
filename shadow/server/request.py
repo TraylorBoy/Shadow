@@ -3,9 +3,7 @@
 import dill
 import socketserver
 
-from threading import Thread, current_thread
-
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, Callable, Tuple
 
 from loguru import logger
 
@@ -16,33 +14,42 @@ class ShadowRequest(socketserver.BaseRequestHandler):
     Runs everytime there is a new connection
     """
 
-    def __respond(self, response: Dict[str, Optional[Any]]):
+    def __shutdown(self, _: Optional[Any] = None):
+        """Closes the running server
+        """
+
+        self.__respond(event="SHUTDOWN", data=True)
+
+        self.server.server_close()
+
+    def __respond(self, event: str, data: Optional[Any]):
         """Sends a response to the client
 
         Args:
-            response (Dict[str, Optional[Any]]): Message to send back to the client after processing their request
+            response (Tuple[str, Optional[Any]]): Message to send back to the client after processing their request
         """
 
-        self.request.sendall(dill.dumps(response))
+        logger.info(f"Sending response to client: {event}, {data}")
 
-    def __process(self, message: Dict[str, Optional[Any]]):
+        self.request.sendall(dill.dumps((event, data)))
+
+    def __process(self, message: Tuple[str, Optional[Any]]):
         """Processes messages sent from the client
 
         Args:
-            message (Dict[str, Optional[Any]]): Message sent from the client
+            message (Tuple[str, Optional[Any]]): Message sent from the client
         """
 
-        response: Dict[str, Optional[Any]] = {
+        events: Dict[str, Callable] = {
+            "shutdown": self.__shutdown
         }
 
-        logger.info(f"Processing request: {message['event']}")
+        event, data = message
 
-        if message["event"] == "shutdown":
+        logger.info(f"Processing request: {event}, {data}")
 
-            response["event"] = "SHUTDOWN"
-            response["data"] = True
-
-            self.__respond(response)
+        if event in events.keys():
+            events[event](data)
 
             self.server.server_close()
 
@@ -52,12 +59,10 @@ class ShadowRequest(socketserver.BaseRequestHandler):
     def handle(self):
         """Message handler"""
 
-        t: Thread = current_thread()
-
         data: Any = self.request.recv(1024)
 
         message: Dict[str, Optional[Any]] = dill.loads(data)
 
-        logger.info(f"{t} - Received message: {message}")
+        logger.info(f"Received message: {message}")
 
         self.__process(message)

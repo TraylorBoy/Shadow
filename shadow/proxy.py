@@ -110,6 +110,7 @@ class ShadowBotProxy(IShadowBot):
         """
 
         self.bot.request(type, task)
+        time.sleep(1)
 
     @logger.catch
     def response(self):
@@ -132,8 +133,6 @@ class ShadowBotProxy(IShadowBot):
         """
 
         self.request(type="wait", task=task)
-
-        time.sleep(1)
 
         return self.response()
 
