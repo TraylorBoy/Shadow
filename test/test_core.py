@@ -1,11 +1,30 @@
 import pytest
-import time
 
-from shadow.bot import ShadowBot
-from shadow.proxy import ShadowBotProxy
+from multiprocessing import Queue
+from threading import Thread
+
+from shadow import ShadowBot, ShadowBotProxy, ShadowClone, ShadowNetwork
 from shadow.helpers import Tasks
 
-from typing import Any, Optional, Tuple
+
+from typing import Dict, Optional, Any
+
+@pytest.fixture
+def result_que():
+    return Queue()
+
+def test_clone(result_que):
+
+    clone: ShadowClone = ShadowClone(pipe=result_que, task=Tasks["test"]["flip"])
+
+    t: Thread = Thread(target=clone.perform, name="flip")
+    t.start()
+    t.join()
+
+    if not result_que.empty():
+        task, result = result_que.get()
+
+        assert task == "flip" and result == False
 
 def test_bot():
 
@@ -50,3 +69,28 @@ def test_bot_proxy():
 
     proxy.stop()
     assert not proxy.alive()
+
+def test_network():
+
+    network: ShadowNetwork = ShadowNetwork(host="localhost", port=8080)
+
+    assert network.host == "localhost" and network.port == 8080
+    assert network.server is not None
+
+    t: Thread = Thread(target=network.serve)
+    t.daemon = True
+    t.start()
+
+    message: Dict[str, Optional[Any]] = {
+        "event": "shutdown"
+    }
+
+    response: Optional[Dict[str, Optional[Any]]] = network.send(message)
+
+    assert response["event"] == "SHUTDOWN" and response["data"] == True
+
+    if t.is_alive():
+        network.kill()
+        t.join()
+
+

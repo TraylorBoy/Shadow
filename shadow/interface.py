@@ -16,25 +16,12 @@ class IShadowNetwork(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def send(self, message: str):
-        raise NotImplementedError()
-
-    @abstractmethod
     def kill(self):
         raise NotImplementedError()
 
     @abstractmethod
-    def sew(self, name: str, tasks: Dict[str, partial]):
+    def send(self):
         raise NotImplementedError()
-
-    @abstractmethod
-    def retract(self, name: str):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def signal(self, name: str, event: str, task: str):
-        raise NotImplementedError()
-
 
 class IShadowBot(ABC):
 

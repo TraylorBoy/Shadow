@@ -28,11 +28,11 @@ logger.add(
     filter=client_log
 )
 
-class ShadowProxy(IShadowNetwork):
+class ShadowNetworkProxy(IShadowNetwork):
 
     """ShadowNetwork Proxy class"""
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 8888):
+    def __init__(self, host: str = "localhost", port: int = 0):
         """Instantiates the shadow network instance
 
         Args:
@@ -41,115 +41,31 @@ class ShadowProxy(IShadowNetwork):
         """
 
         self.network: ShadowNetwork = ShadowNetwork(host, port)
-        self.bot: Optional[ShadowBot] = None
 
-    def serve(self): # pragma: no cover
-        """Start running the server
+    def serve(self):
+        """Start running the server instance on a seperate thread
         """
 
-        asyncio.run(self.network.serve())
-
-    def send(self, message: Dict[str, Optional[Any]]):
-        """Sends a message to the server
-
-        Args:
-            message (Dict[str, Optional[Any]]): Event and data to send to the server
-
-            # Example
-            -----------
-
-            message = {
-                "event": "build",
-                "data": (name, tasks)
-            }
-
-            <ShadowProxy>.send(message)
-
-        Returns:
-            [Any]: Server response
-        """
-
-        logger.info(f"Sending message to server: {message}")
-
-        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-
-        response: Optional[Dict[str, Optional[Any]]] = loop.run_until_complete(self.network.send(message))
-
-        logger.success(f"Response received: {response}")
-
-        return response
+        self.server.serve()
 
     def kill(self):
-        """Stop running the server
+        """Stops the running server instance
         """
 
-        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        self.server.kill()
 
-        response: Optional[Dict[str, Optional[Any]]] = loop.run_until_complete(self.network.kill())
-
-        return response
-
-    def sew(self, name: str, tasks: Dict[str, partial]):
-        """Sends the server information to build a ShadowBot
+    def send(self, message: Dict[str, Optional[Any]]):
+        """Sends a message to the running server instance
 
         Args:
-            name (str): Name to identify the ShadowBot
-            tasks (Dict[str, partial]): Tasks for the ShadowBot to perform on the server
+            message (Dict[str, Optional[Any]]): Message to send to the server
+
+        Returns:
+            [Optional[Dict[str, Optional[Any]]]]: Response received from the server
         """
 
-        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        return self.server.send(message)
 
-        response: Optional[Dict[str, Optional[Any]]] = loop.run_until_complete(self.network.sew(name, tasks))
-
-        return response
-
-    def retract(self, name: str):
-        """Signals the network to remove the sewn ShadowBot
-
-        Args:
-            name (str): Name used to identify the ShadowBot
-        """
-
-        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-
-        response: Optional[Dict[str, Optional[Any]]] = loop.run_until_complete(self.network.retract(name))
-
-        return response
-
-    def signal(self, name: str, event: str, task: str):
-        """Sends a signal to the running ShadowBot process
-
-        Args:
-            name (str): Name used to identify the ShadowBot
-            event (str): Event for ShadowBot to handle
-            task (str): Task for ShadowBot to perform
-        """
-
-        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-
-        response: Optional[Dict[str, Optional[Any]]] = loop.run_until_complete(self.network.signal(name, event, task))
-
-        return response
-
-    def link(self, name: str): # TODO
-        """Sets up the proxy for direct communication with ShadowBot on the network
-
-        Args:
-            name (str): Name used to identify the ShadowBot
-        """
-
-        # Get needles from server
-        needles: Dict[str, Optional[Any]] = self.network.send()
-        pass
-
-    def perform(self): # TODO
-
-        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-
-        pass
-
-        """try:
-            loop.run_until_complete(self.network.)"""
 
 class ShadowBotProxy(IShadowBot):
 

@@ -11,7 +11,7 @@ from shell import shell
 
 from typing import Optional, Tuple, Any, Dict
 
-from shadow import ShadowProxy, Needles
+from shadow import ShadowNetworkProxy, Needles
 
 
 class Core(object):
