@@ -3,7 +3,10 @@
 import dill
 import socketserver
 
-from typing import Optional, Any, Dict, Callable, Tuple
+from shadow.needles import Needles
+from shadow.bot import ShadowBot
+
+from typing import Optional, Any, Dict, Callable, Tuple, List
 
 from loguru import logger
 
@@ -14,9 +17,28 @@ class ShadowRequest(socketserver.BaseRequestHandler):
     Runs everytime there is a new connection
     """
 
+    def __build(self, data: Optional[Any]):
+        """Builds a ShadowBot and sews it
+
+        Args:
+            data (Optional[Any]): ShadowBot name and tasks
+        """
+
+        name, tasks = data
+
+        logger.info(f"Building ShadowBot: {name}, {tasks}")
+
+        shadowbot: ShadowBot = ShadowBot(name, tasks)
+
+        self.needles.sew(bot=shadowbot)
+
+        self.__respond(event="BUILD", data=shadowbot.essence)
+
     def __shutdown(self, _: Optional[Any] = None):
         """Closes the running server
         """
+
+        logger.warning("Shutting down server")
 
         self.__respond(event="SHUTDOWN", data=True)
 
@@ -31,7 +53,9 @@ class ShadowRequest(socketserver.BaseRequestHandler):
 
         logger.info(f"Sending response to client: {event}, {data}")
 
-        self.request.sendall(dill.dumps((event, data)))
+        message: Tuple[str, Optional[Any]] = (event, data)
+
+        self.request.sendall(dill.dumps(message))
 
     def __process(self, message: Tuple[str, Optional[Any]]):
         """Processes messages sent from the client
@@ -41,7 +65,8 @@ class ShadowRequest(socketserver.BaseRequestHandler):
         """
 
         events: Dict[str, Callable] = {
-            "shutdown": self.__shutdown
+            "shutdown": self.__shutdown,
+            "build": self.__build,
         }
 
         event, data = message
@@ -51,18 +76,30 @@ class ShadowRequest(socketserver.BaseRequestHandler):
         if event in events.keys():
             events[event](data)
 
-            self.server.server_close()
-
         else:
             logger.warning(f"Invalid message received: {message}")
+
+    def setup(self):
+        """Initializes the request handler
+        """
+
+        self.needles: Needles = Needles()
 
     def handle(self):
         """Message handler"""
 
-        data: Any = self.request.recv(1024)
+        self.data = self.request.recv(1024).strip()
 
-        message: Dict[str, Optional[Any]] = dill.loads(data)
+        message: Tuple[str, Optional[Any]] = dill.loads(self.data)
 
         logger.info(f"Received message: {message}")
 
         self.__process(message)
+
+    def finish(self):
+        """Called after handle method
+        """
+
+        logger.success("Message handled")
+
+

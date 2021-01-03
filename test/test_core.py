@@ -1,13 +1,15 @@
 import pytest
+import time
+import shell
 
-from multiprocessing import Queue
+from multiprocessing import Queue, Process
 from threading import Thread
 
-from shadow import ShadowBot, ShadowBotProxy, ShadowClone, ShadowNetwork
+from shadow import ShadowBot, ShadowBotProxy, ShadowClone, ShadowNetwork, Needles
 from shadow.helpers import Tasks
 
-
-from typing import Optional, Any, Tuple
+from functools import partial
+from typing import Optional, Any, Tuple, Dict
 
 @pytest.fixture
 def result_que():
@@ -70,25 +72,42 @@ def test_bot_proxy():
     proxy.stop()
     assert not proxy.alive()
 
+def test_needles():
+
+    needles: Needles = Needles()
+    needles.reset()
+
+    assert not needles.can_load()
+
+    needles.sew(bot=ShadowBot(name="TestBot", tasks=Tasks["test"]))
+
+    time.sleep(1)
+
+    assert needles.can_load()
+
+    essence: Tuple[str, Dict[str, partial]] = needles.retract(name="TestBot")
+
+    name, tasks = essence
+    assert name == "TestBot" and tasks is Tasks["test"]
+
 def test_network():
-
     network: ShadowNetwork = ShadowNetwork(host="localhost", port=8080)
+    network.run_server()
 
-    assert network.host == "localhost" and network.port == 8080
-    assert network.server is not None
+    assert network.bot.alive()
 
-    t: Thread = Thread(target=network.serve)
-    t.daemon = True
-    t.start()
+    event, data = network.build(name="TestBot2", tasks=Tasks["test"])
 
-    message: Tuple[str, Optional[Any]] = ("shutdown", None)
+    name, tasks = data
 
-    event, data = network.send(message)
+    assert event == "BUILD" and name == "TestBot2" and not tasks["flip"]()
+
+    event, data = network.send(message=("shutdown", None))
 
     assert event == "SHUTDOWN" and data == True
 
-    if t.is_alive():
-        network.kill()
-        t.join()
+    assert not network.bot.alive()
+
+
 
 

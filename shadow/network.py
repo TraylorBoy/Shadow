@@ -3,14 +3,17 @@
 import dill
 import socket
 
+from threading import Thread
+
 from datetime import datetime
 
-from typing import Optional, Any, Dict, Tuple
+from functools import partial
+from typing import Optional, Any, Dict, Tuple, List
 
 from shadow.helpers import Borg
 from shadow.interface import IShadowNetwork
 from shadow.server import ShadowRequest, ShadowServer
-from shadow.needles import Needles
+from shadow.bot import ShadowBot
 
 from loguru import logger
 
@@ -46,15 +49,17 @@ class ShadowNetwork(Borg, IShadowNetwork):
             self.port: int = port
 
         if not hasattr(self, "server"):
-            self.server: ShadowServer = ShadowServer((host, port), ShadowRequest)
+            self.server: ShadowServer = ShadowServer((host, port), ShadowRequest, bind_and_activate=False)
 
-            self.server.allow_reuse_address = True
+            self.server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        if not hasattr(self, "sock"):
-            self.sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if not hasattr(self, "bot"):
+            server_tasks: Dict[str, partial] = {
+                "serve": partial(self.serve),
+                "shutdown": partial(self.kill)
+            }
 
-        if not hasattr(self, "needles"):
-            self.needles: Needles = Needles()
+            self.bot: ShadowBot = ShadowBot(name="ServerBot", tasks=server_tasks)
 
     def __write(self, message: Tuple[str, Optional[Any]]):
         """Connects to the server and writes the message
@@ -63,25 +68,31 @@ class ShadowNetwork(Borg, IShadowNetwork):
             message (Tuple[str, Optional[Any]]): Message to write to the server
         """
 
-        self.sock.connect((self.host, self.port))
-        self.sock.sendall(dill.dumps(message))
+        resp: Optional[Tuple[str, Optional[Any]]] = None
 
-        return self.__read()
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
 
-    def __read(self):
-        """Reads a response sent from the server
+            # Open a connection to the server
+            sock.connect((self.host, self.port))
 
-        Args:
-            sock (socket.socket): Opened socket connection from writer
-        """
+            # Send over the message
+            sock.sendall(dill.dumps(message))
 
-        data: Any = self.sock.recv(1024)
+            # Read response
+            data: List[Any] = []
 
-        response: Dict[str, Optional[Any]] = dill.loads(data)
+            while True:
+                chunk = sock.recv(1024)
 
-        self.sock.close()
+                if not chunk: break
 
-        return response
+                data.append(chunk)
+
+            resp = dill.loads(b"".join(data))
+
+            logger.info(f"Received a response: {resp}")
+
+        return resp
 
     def serve(self):
         """Start running the server instance on a seperate thread
@@ -89,6 +100,8 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
         with self.server:
             # Create the server thread and start running it in the background
+            self.server.server_bind()
+            self.server.server_activate()
 
             self.host, self.port = self.server.server_address
 
@@ -97,7 +110,7 @@ class ShadowNetwork(Borg, IShadowNetwork):
             self.server.serve_forever()
 
     def kill(self):
-        """Stops the running server instance
+        """Stops the running server instance and ServerBot
         """
 
         with self.server:
@@ -113,5 +126,37 @@ class ShadowNetwork(Borg, IShadowNetwork):
             [Optional[Tuple[str, Optional[Any]]]: Response received from the server
         """
 
-        with self.server:
-            return self.__write(message)
+        response: Optional[Tuple[str, Optional[Any]]] = self.__write(message)
+
+        if message[0] == "shutdown": self.stop_server()
+
+        return response
+
+    def build(self, name: str, tasks: Dict[str, partial]):
+        """Builds a ShadowBot on the network
+
+        Args:
+            name (str): [description]
+            tasks (Dict[str, partial]): [description]
+
+        Returns:
+            [Optional[Tuple[str, Optional[Any]]]: Response received from the server
+        """
+
+        data: Tuple[str, Dict[str, partial]] = (name, tasks)
+
+        return self.send(message=("build", data))
+
+    def run_server(self):
+        """Start serving with the ServerBot
+        """
+
+        self.bot.start()
+        self.bot.request(type="perform", task="serve")
+
+    def stop_server(self):
+        """Stop serving with the ServerBot
+        """
+
+        self.bot.request(type="perform", task="shutdown")
+        self.bot.stop()

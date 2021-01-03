@@ -51,6 +51,6 @@ class ShadowClone(object):
 
             logger.exception(e)
 
-            self.pipe.put((self.name, e))
+            self.pipe.put((self.soul.name, e))
 
 

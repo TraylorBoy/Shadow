@@ -77,6 +77,7 @@ class ShadowBot(IShadowBot):
         logger.debug("Setting up")
 
         self.soul: mp.Process = mp.Process(target=self.core, daemon=True)
+        self.essence: Tuple[str, Dict[str, partial]] = (self.id, self.manager)
 
         self.results: mp.Queue = mp.Queue()
         self.tasks: mp.Queue = mp.Queue()

@@ -8,7 +8,7 @@ from copy import copy
 from shadow.bot import ShadowBot
 from functools import partial
 
-from typing import Dict, List
+from typing import Dict, Tuple
 
 from loguru import logger
 
@@ -64,30 +64,28 @@ class Needles(object):
             # Cache the needles dictionary
             self.save() if save else None
 
-    def retract(self, bot: ShadowBot):
+    def retract(self, name: str):
         """Unregisters ShadowBot from the needles dictionary
 
         Args:
-            bot (ShadowBot): Instantiated ShadowBot instance
+            name (str): Name of sewn ShadowBot to remove
 
         Returns:
-            [Dict[str, Dict[str, partial]]]: The ShadowBots name and tasks used to initialize the instance
+            Tuple[str, Dict[str, partial]]: The ShadowBots name and tasks used to initialize the instance
         """
 
-        essence: Dict[str, Dict[str, partial]] = {}
-
-        if self.check(name=bot.id):
-
+        if self.check(name):
             # Remove the needle from the needles dictionary
-            essence = self.needle(bot)
-            del self.needles[bot.id]
 
-            logger.debug(f"{essence} retracted")
+            shadowbot: ShadowBot = self.get(name)
+            del self.needles[name]
+
+            logger.debug(f"{shadowbot} retracted")
 
             # Cache the needles dictionary
             self.save()
 
-        return essence
+            return self.needle(bot=shadowbot)
 
     def can_load(self):
         """Checks if cache file exists
@@ -105,11 +103,13 @@ class Needles(object):
 
         with open(self.__path, "rb") as cache_file:
 
-            _needles: Dict[str, Dict[str, partial]] = copy(dill.load(cache_file))
+            _needles: Dict[str, Tuple[str, Dict[str, partial]]] = copy(dill.load(cache_file))
 
             # Build ShadowBots and register them
-            for _id, tasks in _needles.items():
-                self.sew(bot=ShadowBot(name=_id, tasks=tasks), save=False)
+            for _, essence in _needles.items():
+                name, tasks = essence
+
+                self.sew(bot=ShadowBot(name, tasks), save=False)
 
         logger.debug(f"Needles loaded: {self.needles}")
 
@@ -119,15 +119,11 @@ class Needles(object):
         logger.debug(f"Storing Needles in cache")
 
         with open(self.__path, "wb") as cache_file:
-            _needles: Dict[str, Dict[str, partial]] = {}
+            _needles: Dict[str, Tuple[str, Dict[str, partial]]] = {}
 
-            # Store clones instead
+            # Store bots name and tasks
             for _id, bot in self.needles.items():
-                _needles[_id] = {}
-
-                # Retrieve partial from clone
-                for task, clone in bot.clones.items():
-                    _needles[_id][task] = clone.task
+                _needles[_id] = bot.essence
 
             dill.dump(_needles, cache_file)
 
@@ -166,17 +162,10 @@ class Needles(object):
             bot (ShadowBot): Instantiated ShadowBot instance
 
         Returns:
-            [Dict[str, Dict[str, partial]]]: ShadowBots name and tasks used to initialize the instance
+            Tuple[str, Dict[str, partial]]: ShadowBots name and tasks used to initialize the instance
         """
 
-        needle: Dict[str, Dict[str, partial]] = {}
-        needle[bot.id] = {}
-
-        # Retrieve partial from clone
-        for task, clone in bot.clones.items():
-            needle[bot.id][task] = clone.task
-
-        return needle
+        return bot.essence
 
     def get(self, name: str):
         """Retrieves ShadowBot from needles dictionary
