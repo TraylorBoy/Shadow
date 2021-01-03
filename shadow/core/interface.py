@@ -1,8 +1,6 @@
 """Interfaces for the Shadow package"""
 
-from typing import Dict, Optional
-
-from functools import partial
+from typing import Optional
 
 from abc import ABC, abstractmethod
 

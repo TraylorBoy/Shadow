@@ -9,8 +9,8 @@ from functools import partial
 
 from typing import Dict, Any, Optional, Callable, Tuple, List
 
-from shadow.clone import ShadowClone
-from shadow.interface import IShadowBot
+from shadow.core.clone import ShadowClone
+from shadow.core.interface import IShadowBot
 
 from loguru import logger
 

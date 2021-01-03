@@ -1,24 +1,19 @@
 """Proxy to the ShadowNetwork interface"""
 
-import asyncio
 import time
 
 from datetime import datetime
 
-from functools import partial
-
 from typing import Any, Dict, Optional
 
-from multiprocessing import Queue
-
-from shadow.interface import IShadowNetwork, IShadowBot
-from shadow.network import ShadowNetwork
-from shadow.bot import ShadowBot
+from shadow.core.interface import IShadowNetwork, IShadowBot
+from shadow.core.network import ShadowNetwork
+from shadow.core.bot import ShadowBot
 
 from loguru import logger
 
 def client_log(record):
-    return record["name"] in ["shadow.proxy", "shadow.core"]
+    return record["name"] in ["shadow.client.proxy", "shadow.core"]
 
 # Setup log file
 logger.add(

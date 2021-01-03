@@ -11,9 +11,9 @@ from functools import partial
 from typing import Optional, Any, Dict, Tuple, List
 
 from shadow.helpers import Borg
-from shadow.interface import IShadowNetwork
+from shadow.core.interface import IShadowNetwork
 from shadow.server import ShadowRequest, ShadowServer
-from shadow.bot import ShadowBot
+from shadow.core.bot import ShadowBot
 
 from loguru import logger
 

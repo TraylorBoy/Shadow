@@ -1,15 +1,14 @@
 import pytest
 import time
-import shell
 
-from multiprocessing import Queue, Process
+from multiprocessing import Queue
 from threading import Thread
 
 from shadow import ShadowBot, ShadowBotProxy, ShadowClone, ShadowNetwork, Needles
 from shadow.helpers import Tasks
 
 from functools import partial
-from typing import Optional, Any, Tuple, Dict
+from typing import Tuple, Dict
 
 @pytest.fixture
 def result_que():

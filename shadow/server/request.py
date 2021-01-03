@@ -3,8 +3,8 @@
 import dill
 import socketserver
 
-from shadow.needles import Needles
-from shadow.bot import ShadowBot
+from shadow.server.needles import Needles
+from shadow.core.bot import ShadowBot
 
 from typing import Optional, Any, Dict, Callable, Tuple, List
 

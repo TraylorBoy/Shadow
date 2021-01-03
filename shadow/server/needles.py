@@ -5,7 +5,7 @@ import dill
 
 from copy import copy
 
-from shadow.bot import ShadowBot
+from shadow.core.bot import ShadowBot
 from functools import partial
 
 from typing import Dict, Tuple
