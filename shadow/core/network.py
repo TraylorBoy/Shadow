@@ -2,8 +2,7 @@
 
 import dill
 import socket
-
-from threading import Thread
+import time
 
 from datetime import datetime
 
@@ -32,12 +31,12 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
     """Manages ShadowBots and the server"""
 
-    def __init__(self, host: str = "localhost", port: int = 0):
+    def __init__(self, host: str = "127.0.0.1", port: int = 0):
         """Initializes shared state and properties between each instance
 
         Args:
             host (str, optional): Host to run server on. Defaults to "127.0.0.1".
-            port (int, optional): Port to connect to. Defaults to 8888.
+            port (int, optional): Port to connect to. Defaults to 0.
         """
 
         super().__init__()
@@ -79,16 +78,17 @@ class ShadowNetwork(Borg, IShadowNetwork):
             sock.sendall(dill.dumps(message))
 
             # Read response
-            data: List[Any] = []
+            #data: List[Any] = []
 
-            while True:
+            """while True:
                 chunk = sock.recv(1024)
 
                 if not chunk: break
 
-                data.append(chunk)
+                data.append(chunk)"""
 
-            resp = dill.loads(b"".join(data))
+            #resp = dill.loads(b"".join(data))
+            resp = dill.loads(sock.recv(1024))
 
             logger.info(f"Received a response: {resp}")
 
@@ -160,3 +160,12 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
         self.bot.request(type="perform", task="shutdown")
         self.bot.stop()
+
+    def alive(self):
+        """Checks if ServerBot is alive
+
+        Returns
+            [bool]: ServerBot is alive or not
+        """
+
+        return self.bot.alive()

@@ -21,6 +21,10 @@ class IShadowNetwork(ABC):
     def send(self):
         raise NotImplementedError()
 
+    @abstractmethod
+    def alive(self):
+        raise NotImplementedError()
+
 class IShadowBot(ABC):
 
     """ShadowBot Interface"""

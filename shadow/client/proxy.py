@@ -4,7 +4,7 @@ import time
 
 from datetime import datetime
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from shadow.core.interface import IShadowNetwork, IShadowBot
 from shadow.core.network import ShadowNetwork
@@ -27,12 +27,12 @@ class ShadowNetworkProxy(IShadowNetwork):
 
     """ShadowNetwork Proxy class"""
 
-    def __init__(self, host: str = "localhost", port: int = 0):
+    def __init__(self, host: str = "127.0.0.1", port: int = 0):
         """Instantiates the shadow network instance
 
         Args:
             host (str, optional): Host the server is running on. Defaults to "127.0.0.1".
-            port (int, optional): Port the server is listening on. Defaults to 8888.
+            port (int, optional): Port the server is listening on. Defaults to 0.
         """
 
         self.network: ShadowNetwork = ShadowNetwork(host, port)
@@ -41,25 +41,34 @@ class ShadowNetworkProxy(IShadowNetwork):
         """Start running the server instance on a seperate thread
         """
 
-        self.server.serve()
+        self.network.run_server()
 
     def kill(self):
         """Stops the running server instance
         """
 
-        self.server.kill()
+        self.network.stop_server()
 
-    def send(self, message: Dict[str, Optional[Any]]):
+    def send(self, message: Tuple[str, Optional[Any]]):
         """Sends a message to the running server instance
 
         Args:
-            message (Dict[str, Optional[Any]]): Message to send to the server
+            message (Tuple[str, Optional[Any]]): Message to send to the server
 
         Returns:
-            [Optional[Dict[str, Optional[Any]]]]: Response received from the server
+            [Optional[Tuple[str, Optional[Any]]]]: Response received from the server
         """
 
-        return self.server.send(message)
+        return self.network.send(message)
+
+    def alive(self):
+        """Checks if network is running
+
+        Returns:
+            [bool]: Network is alive
+        """
+
+        return self.network.alive()
 
 
 class ShadowBotProxy(IShadowBot):
@@ -105,7 +114,6 @@ class ShadowBotProxy(IShadowBot):
         """
 
         self.bot.request(type, task)
-        time.sleep(1)
 
     @logger.catch
     def response(self):

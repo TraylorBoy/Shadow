@@ -39,7 +39,7 @@ class ShadowClone(object):
 
             result: Optional[Any] = self.task()
 
-            self.pipe.put((self.soul.name, result), block=True)
+            self.pipe.put((self.soul.name, result), block=True, timeout=10)
 
             logger.debug(f"Completed task, result: {result}")
 

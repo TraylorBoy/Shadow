@@ -79,11 +79,16 @@ class ShadowRequest(socketserver.BaseRequestHandler):
         else:
             logger.warning(f"Invalid message received: {message}")
 
+            # Echo back the invalid message
+            self.__respond(event="INVALID", data=message)
+
     def setup(self):
         """Initializes the request handler
         """
 
         self.needles: Needles = Needles()
+
+        return socketserver.BaseRequestHandler.setup(self)
 
     def handle(self):
         """Message handler"""
@@ -96,10 +101,14 @@ class ShadowRequest(socketserver.BaseRequestHandler):
 
         self.__process(message)
 
+        return
+
     def finish(self):
         """Called after handle method
         """
 
         logger.success("Message handled")
+
+        return socketserver.BaseRequestHandler.finish(self)
 
 

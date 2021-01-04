@@ -4,7 +4,7 @@ import time
 from multiprocessing import Queue
 from threading import Thread
 
-from shadow import ShadowBot, ShadowBotProxy, ShadowClone, ShadowNetwork, Needles
+from shadow import ShadowBot, ShadowBotProxy, ShadowClone, ShadowNetwork, Needles, ShadowNetworkProxy
 from shadow.helpers import Tasks
 
 from functools import partial
@@ -90,7 +90,7 @@ def test_needles():
     assert name == "TestBot" and tasks is Tasks["test"]
 
 def test_network():
-    network: ShadowNetwork = ShadowNetwork(host="localhost", port=8080)
+    network: ShadowNetwork = ShadowNetwork(host="127.0.0.1", port=8080)
     network.run_server()
 
     assert network.bot.alive()
@@ -107,6 +107,11 @@ def test_network():
 
     assert not network.bot.alive()
 
+def test_network_proxy():
 
+    proxy: ShadowNetworkProxy = ShadowNetworkProxy(host="127.0.0.1", port=8080)
+    proxy.serve()
+    assert proxy.alive()
 
-
+    proxy.kill()
+    assert not proxy.alive()

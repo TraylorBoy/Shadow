@@ -60,6 +60,7 @@ class ShadowBot(IShadowBot):
         logger.info("~Shadow Clone Jutsu~")
 
         self.clones[task]["soul"] = Thread(target=self.clones[task]["clone"].perform, name=task)
+        self.clones[task]["soul"].daemon = True
 
         self.clones[task]["soul"].start()
 
@@ -76,7 +77,9 @@ class ShadowBot(IShadowBot):
 
         logger.debug("Setting up")
 
-        self.soul: mp.Process = mp.Process(target=self.core, daemon=True)
+        self.soul: mp.Process = mp.Process(target=self.core)
+        self.soul.daemon = True
+
         self.essence: Tuple[str, Dict[str, partial]] = (self.id, self.manager)
 
         self.results: mp.Queue = mp.Queue()
@@ -129,8 +132,10 @@ class ShadowBot(IShadowBot):
             logger.info("Stopping")
 
             # Send a kill signal
-            self.requests.put("stop", block=True)
-            self.soul.join()
+            self.requests.put("stop", block=True, timeout=10)
+
+            # Wait for process to rejoin
+            self.soul.join(timeout=10)
 
     def restart(self):
         """Re-instantiates the ShadowBot's process"""
@@ -149,7 +154,7 @@ class ShadowBot(IShadowBot):
         """
 
         if not self.tasks.empty():
-            task: str = self.tasks.get(block=True)
+            task: str = self.tasks.get(block=True, timeout=10)
 
             if task not in self.clones.keys():
                 logger.warning(f"Invalid task received: {task}")
@@ -165,7 +170,7 @@ class ShadowBot(IShadowBot):
         """
 
         if not self.compile.empty():
-            task: str = self.compile.get(block=True)
+            task: str = self.compile.get(block=True, timeout=10)
 
             if task not in self.clones.keys():
                 logger.warning(f"Invalid task received: {task}")
@@ -174,7 +179,7 @@ class ShadowBot(IShadowBot):
             if self.clones[task]["soul"] is not None and self.clones[task]["soul"].is_alive():
 
                 logger.info(f"Waiting for {task} to complete")
-                self.clones[task]["soul"].join()
+                self.clones[task]["soul"].join(timeout=10)
 
     @logger.catch
     def core(self):
@@ -193,14 +198,12 @@ class ShadowBot(IShadowBot):
                     "wait": self.wait
                 }
 
-                request: str = self.requests.get(block=True)
+                request: str = self.requests.get(block=True, timeout=10)
 
                 logger.info(f"Request received: {request}")
 
                 if request in requests.keys():
                     requests[request]()
-
-            time.sleep(1)
 
     @logger.catch
     def request(self, type: str, task: Optional[str]):
@@ -215,9 +218,15 @@ class ShadowBot(IShadowBot):
             logger.info(f"Sending request: {type} - {task}")
 
             # Either perform or wait for the result
-            self.tasks.put(task, block=True) if type == "perform" else self.compile.put(task, block=True)
+            if type == "perform":
+                self.tasks.put(task, block=True, timeout=10)
+            elif type == "wait":
+                self.compile.put(task, block=True, timeout=10)
+            else:
+                # Do nothing, only perform and wait require task arg
+                pass
 
-            self.requests.put(type, block=True)
+            self.requests.put(type, block=True, timeout=10)
 
             time.sleep(1)
 
@@ -230,7 +239,7 @@ class ShadowBot(IShadowBot):
         """
 
         if not self.results.empty():
-            response: Tuple[str, Any] = self.results.get(block=True)
+            response: Tuple[str, Any] = self.results.get(block=True, timeout=10)
 
             logger.info(f"Result compiled, sending response: {response}")
 
