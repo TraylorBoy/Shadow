@@ -1,6 +1,7 @@
 """Interfaces for the Shadow package"""
 
-from typing import Optional
+from functools import partial
+from typing import Optional, Dict
 
 from abc import ABC, abstractmethod
 
@@ -23,6 +24,10 @@ class IShadowNetwork(ABC):
 
     @abstractmethod
     def alive(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def build(self, name: str, tasks: Dict[str, partial]):
         raise NotImplementedError()
 
 class IShadowBot(ABC):

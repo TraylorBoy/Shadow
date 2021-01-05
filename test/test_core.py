@@ -113,5 +113,11 @@ def test_network_proxy():
     proxy.serve()
     assert proxy.alive()
 
+    event, data = proxy.build(name="TestBot2", tasks=Tasks["test"])
+
+    name, tasks = data
+
+    assert event == "BUILD" and name == "TestBot2" and not tasks["flip"]()
+
     proxy.kill()
     assert not proxy.alive()

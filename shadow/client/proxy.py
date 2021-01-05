@@ -1,6 +1,9 @@
 """Proxy to the ShadowNetwork interface"""
 
-import time
+import socket
+import dill
+
+from functools import partial
 
 from datetime import datetime
 
@@ -13,7 +16,7 @@ from shadow.core.bot import ShadowBot
 from loguru import logger
 
 def client_log(record):
-    return record["name"] in ["shadow.client.proxy", "shadow.core"]
+    return record["name"] in ["shadow.client", "shadow.core"]
 
 # Setup log file
 logger.add(
@@ -36,6 +39,14 @@ class ShadowNetworkProxy(IShadowNetwork):
         """
 
         self.network: ShadowNetwork = ShadowNetwork(host, port)
+        self.sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((host, port))
+
+    def __del__(self):
+        """Clean up
+        """
+
+        self.sock.close()
 
     def serve(self):
         """Start running the server instance on a seperate thread
@@ -48,6 +59,7 @@ class ShadowNetworkProxy(IShadowNetwork):
         """
 
         self.network.stop_server()
+        self.sock.close()
 
     def send(self, message: Tuple[str, Optional[Any]]):
         """Sends a message to the running server instance
@@ -59,7 +71,9 @@ class ShadowNetworkProxy(IShadowNetwork):
             [Optional[Tuple[str, Optional[Any]]]]: Response received from the server
         """
 
-        return self.network.send(message)
+        self.sock.sendall(dill.dumps(message))
+
+        return dill.loads(self.sock.recv(1024))
 
     def alive(self):
         """Checks if network is running
@@ -70,6 +84,20 @@ class ShadowNetworkProxy(IShadowNetwork):
 
         return self.network.alive()
 
+    def build(self, name: str, tasks: Dict[str, partial]):
+        """Builds a ShadowBot on the network
+
+        Args:
+            name (str): [description]
+            tasks (Dict[str, partial]): [description]
+
+        Returns:
+            [Optional[Tuple[str, Optional[Any]]]: Response received from the server
+        """
+
+        data: Tuple[str, Dict[str, partial]] = (name, tasks)
+
+        return self.send(message=("build", data))
 
 class ShadowBotProxy(IShadowBot):
 

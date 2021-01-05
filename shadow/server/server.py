@@ -2,7 +2,7 @@
 
 import socketserver
 
-class ShadowServer(socketserver.TCPServer):
+class ShadowServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
     """TCP Server class"""
 

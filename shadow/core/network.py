@@ -78,17 +78,16 @@ class ShadowNetwork(Borg, IShadowNetwork):
             sock.sendall(dill.dumps(message))
 
             # Read response
-            #data: List[Any] = []
+            data: List[Any] = []
 
-            """while True:
+            while True:
                 chunk = sock.recv(1024)
 
                 if not chunk: break
 
-                data.append(chunk)"""
+                data.append(chunk)
 
-            #resp = dill.loads(b"".join(data))
-            resp = dill.loads(sock.recv(1024))
+            resp = dill.loads(b"".join(data))
 
             logger.info(f"Received a response: {resp}")
 
@@ -99,7 +98,6 @@ class ShadowNetwork(Borg, IShadowNetwork):
         """
 
         with self.server:
-            # Create the server thread and start running it in the background
             self.server.server_bind()
             self.server.server_activate()
 
@@ -114,6 +112,7 @@ class ShadowNetwork(Borg, IShadowNetwork):
         """
 
         with self.server:
+            self.server.socket.close()
             self.server.shutdown()
 
     def send(self, message: Tuple[str, Optional[Any]]):
@@ -125,6 +124,7 @@ class ShadowNetwork(Borg, IShadowNetwork):
         Returns:
             [Optional[Tuple[str, Optional[Any]]]: Response received from the server
         """
+
 
         response: Optional[Tuple[str, Optional[Any]]] = self.__write(message)
 
