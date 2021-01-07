@@ -1,27 +1,60 @@
 """Request class for handling requests sent from the client"""
 
-import dill
-import socketserver
-
 from shadow.server.needles import Needles
 from shadow.core.bot import ShadowBot
 
+from functools import partial
 from typing import Optional, Any, Dict, Callable, Tuple, List
 
 from loguru import logger
 
-class ShadowRequest(socketserver.BaseRequestHandler):
+class ShadowRequest(object):
 
     """Server request handler
 
     Runs everytime there is a new connection
     """
 
+    def __init__(self):
+        """Initializes the request handler
+        """
+
+        self.needles: Needles = Needles()
+
+    def __shutdown(self, _: Optional[Any]):
+        """Processes shutdown request sent from the client
+        """
+
+        # Cleanup
+        self.needles.save()
+
+        return ("SHUTDOWN", True)
+
+    def __needles(self, _: Optional[Any]):
+        """Sends over all ShadowBot id's and their tasks to the client
+
+        Returns
+            [Tuple[str, Optional[Any]]]: Response to the client
+        """
+
+        logger.info("Sending over needles data")
+
+        response: List[Tuple[str, Dict[str, partial]]] = []
+
+        for needle in self.needles:
+            logger.debug(needle)
+            response.append((needle.id, needle.essence))
+
+        return ("NEEDLES", response)
+
     def __build(self, data: Optional[Any]):
         """Builds a ShadowBot and sews it
 
         Args:
             data (Optional[Any]): ShadowBot name and tasks
+
+        Returns:
+            [Tuple[str, Optional[Any]]]: Response to the client
         """
 
         name, tasks = data
@@ -32,41 +65,22 @@ class ShadowRequest(socketserver.BaseRequestHandler):
 
         self.needles.sew(bot=shadowbot)
 
-        self.__respond(event="BUILD", data=shadowbot.essence)
+        return ("BUILD", shadowbot.essence)
 
-    def __shutdown(self, _: Optional[Any] = None):
-        """Closes the running server
-        """
-
-        logger.warning("Shutting down server")
-
-        self.__respond(event="SHUTDOWN", data=True)
-
-        self.server.server_close()
-
-    def __respond(self, event: str, data: Optional[Any]):
-        """Sends a response to the client
-
-        Args:
-            response (Tuple[str, Optional[Any]]): Message to send back to the client after processing their request
-        """
-
-        logger.info(f"Sending response to client: {event}, {data}")
-
-        message: Tuple[str, Optional[Any]] = (event, data)
-
-        self.request.sendall(dill.dumps(message))
-
-    def __process(self, message: Tuple[str, Optional[Any]]):
+    def handle(self, message: Tuple[str, Optional[Any]]):
         """Processes messages sent from the client
 
         Args:
             message (Tuple[str, Optional[Any]]): Message sent from the client
+
+        Returns:
+            [Tuple[str, Optional[Any]]]: Response to the client
         """
 
         events: Dict[str, Callable] = {
-            "shutdown": self.__shutdown,
             "build": self.__build,
+            "needles": self.__needles,
+            "shutdown": self.__shutdown
         }
 
         event, data = message
@@ -74,41 +88,11 @@ class ShadowRequest(socketserver.BaseRequestHandler):
         logger.info(f"Processing request: {event}, {data}")
 
         if event in events.keys():
-            events[event](data)
+            return events[event](data)
 
         else:
             logger.warning(f"Invalid message received: {message}")
 
             # Echo back the invalid message
-            self.__respond(event="INVALID", data=message)
-
-    def setup(self):
-        """Initializes the request handler
-        """
-
-        self.needles: Needles = Needles()
-
-        return socketserver.BaseRequestHandler.setup(self)
-
-    def handle(self):
-        """Message handler"""
-
-        self.data = self.request.recv(1024).strip()
-
-        message: Tuple[str, Optional[Any]] = dill.loads(self.data)
-
-        logger.info(f"Received message: {message}")
-
-        self.__process(message)
-
-        return
-
-    def finish(self):
-        """Called after handle method
-        """
-
-        logger.success("Message handled")
-
-        return socketserver.BaseRequestHandler.finish(self)
-
+            return ("INVALID", message)
 

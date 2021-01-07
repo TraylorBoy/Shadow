@@ -2,7 +2,7 @@
 
 import dill
 import socket
-import time
+
 
 from datetime import datetime
 
@@ -11,13 +11,13 @@ from typing import Optional, Any, Dict, Tuple, List
 
 from shadow.helpers import Borg
 from shadow.core.interface import IShadowNetwork
-from shadow.server import ShadowRequest, ShadowServer
+from shadow.server import ShadowServer
 from shadow.core.bot import ShadowBot
 
 from loguru import logger
 
 def network_log(record):
-    return record["name"] in ["shadow.network", "shadow.needles", "shadow.bot", "shadow.clone", "shadow.server.request"]
+    return record["name"] in ["shadow.server"]
 
 # Setup log file
 logger.add(
@@ -48,28 +48,37 @@ class ShadowNetwork(Borg, IShadowNetwork):
             self.port: int = port
 
         if not hasattr(self, "server"):
-            self.server: ShadowServer = ShadowServer((host, port), ShadowRequest, bind_and_activate=False)
-
-            self.server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.server: ShadowServer = ShadowServer(host, port)
 
         if not hasattr(self, "bot"):
             server_tasks: Dict[str, partial] = {
-                "serve": partial(self.serve),
-                "shutdown": partial(self.kill)
+                "serve": partial(self.server.serve),
+                "shutdown": partial(self.stop),
+                "status": partial(self.server.alive)
             }
 
             self.bot: ShadowBot = ShadowBot(name="ServerBot", tasks=server_tasks)
+            self.bot.soul.name = "ServerBot"
 
-    def __write(self, message: Tuple[str, Optional[Any]]):
+    def send(self, message: Tuple[str, Optional[Any]]):
         """Connects to the server and writes the message
 
         Args:
             message (Tuple[str, Optional[Any]]): Message to write to the server
+
+        Returns:
+            [Optional[Tuple[str, Optional[Any]]]]: Response from the server
         """
+
+        if not self.alive():
+            logger.critical("ServerBot is not alive")
+            return None
 
         resp: Optional[Tuple[str, Optional[Any]]] = None
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            # "Address already in use" fix
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
             # Open a connection to the server
             sock.connect((self.host, self.port))
@@ -78,87 +87,42 @@ class ShadowNetwork(Borg, IShadowNetwork):
             sock.sendall(dill.dumps(message))
 
             # Read response
-            data: List[Any] = []
-
-            while True:
-                chunk = sock.recv(1024)
-
-                if not chunk: break
-
-                data.append(chunk)
-
-            resp = dill.loads(b"".join(data))
+            resp = dill.loads(sock.recv(1024))
 
             logger.info(f"Received a response: {resp}")
 
         return resp
 
     def serve(self):
-        """Start running the server instance on a seperate thread
-        """
-
-        with self.server:
-            self.server.server_bind()
-            self.server.server_activate()
-
-            self.host, self.port = self.server.server_address
-
-            logger.info(f"Serving on {self.host}:{self.port}")
-
-            self.server.serve_forever()
-
-    def kill(self):
-        """Stops the running server instance and ServerBot
-        """
-
-        with self.server:
-            self.server.socket.close()
-            self.server.shutdown()
-
-    def send(self, message: Tuple[str, Optional[Any]]):
-        """Sends a message to the running server instance
-
-        Args:
-            message (Tuple[str, Optional[Any]]): Message to send to the server
-
-        Returns:
-            [Optional[Tuple[str, Optional[Any]]]: Response received from the server
-        """
-
-
-        response: Optional[Tuple[str, Optional[Any]]] = self.__write(message)
-
-        if message[0] == "shutdown": self.stop_server()
-
-        return response
-
-    def build(self, name: str, tasks: Dict[str, partial]):
-        """Builds a ShadowBot on the network
-
-        Args:
-            name (str): [description]
-            tasks (Dict[str, partial]): [description]
-
-        Returns:
-            [Optional[Tuple[str, Optional[Any]]]: Response received from the server
-        """
-
-        data: Tuple[str, Dict[str, partial]] = (name, tasks)
-
-        return self.send(message=("build", data))
-
-    def run_server(self):
         """Start serving with the ServerBot
         """
 
         self.bot.start()
         self.bot.request(type="perform", task="serve")
 
-    def stop_server(self):
+    def stop(self):
+        """Sends a shutdown signal to the server
+
+        Returns:
+            [Optional[Tuple[str, Optional[Any]]]]: Response from the server
+        """
+
+        if not self.alive():
+            logger.critical("ServerBot is not alive")
+            return None
+
+        return self.send(message=("shutdown", None))
+
+    def kill(self):
         """Stop serving with the ServerBot
         """
 
+        if not self.alive():
+            logger.critical("ServerBot is not alive")
+            return None
+
         self.bot.request(type="perform", task="shutdown")
+        self.bot.request(type="wait", task="shutdown")
         self.bot.stop()
 
     def alive(self):
@@ -169,3 +133,22 @@ class ShadowNetwork(Borg, IShadowNetwork):
         """
 
         return self.bot.alive()
+
+    def status(self):
+        """Checks if server process is listening for requests
+
+        Returns:
+            [Optional[Any]]: Server status response
+        """
+
+        if not self.alive():
+            logger.critical("ServerBot is not alive")
+            return None
+
+        self.bot.request(type="perform", task="status")
+        self.bot.request(type="wait", task="status")
+
+        # Get the response from the server
+        _, result = self.bot.response()
+
+        return result

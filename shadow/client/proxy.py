@@ -2,12 +2,13 @@
 
 import socket
 import dill
+import time
 
 from functools import partial
 
 from datetime import datetime
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Callable
 
 from shadow.core.interface import IShadowNetwork, IShadowBot
 from shadow.core.network import ShadowNetwork
@@ -39,27 +40,30 @@ class ShadowNetworkProxy(IShadowNetwork):
         """
 
         self.network: ShadowNetwork = ShadowNetwork(host, port)
-        self.sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((host, port))
-
-    def __del__(self):
-        """Clean up
-        """
-
-        self.sock.close()
 
     def serve(self):
-        """Start running the server instance on a seperate thread
+        """Start running the ServerBot
+
+        Returns:
+            [bool]: Server started successfully or not
         """
 
-        self.network.run_server()
+        self.network.serve()
+        time.sleep(1)
+
+        return self.alive()
 
     def kill(self):
         """Stops the running server instance
+
+        Returns:
+            [Tuple[str, Optional[Any]]]: Shutdown message received from the server
         """
 
-        self.network.stop_server()
-        self.sock.close()
+        resp: Tuple[str, Optional[Any]] = self.network.kill()
+        time.sleep(1)
+
+        return resp
 
     def send(self, message: Tuple[str, Optional[Any]]):
         """Sends a message to the running server instance
@@ -71,9 +75,7 @@ class ShadowNetworkProxy(IShadowNetwork):
             [Optional[Tuple[str, Optional[Any]]]]: Response received from the server
         """
 
-        self.sock.sendall(dill.dumps(message))
-
-        return dill.loads(self.sock.recv(1024))
+        return self.network.send(message)
 
     def alive(self):
         """Checks if network is running
@@ -83,6 +85,15 @@ class ShadowNetworkProxy(IShadowNetwork):
         """
 
         return self.network.alive()
+
+    def status(self):
+        """Checks if server is connected
+
+        Returns:
+            [bool]: Server is listening
+        """
+
+        return self.network.status()
 
     def build(self, name: str, tasks: Dict[str, partial]):
         """Builds a ShadowBot on the network
@@ -98,6 +109,7 @@ class ShadowNetworkProxy(IShadowNetwork):
         data: Tuple[str, Dict[str, partial]] = (name, tasks)
 
         return self.send(message=("build", data))
+
 
 class ShadowBotProxy(IShadowBot):
 

@@ -90,34 +90,20 @@ def test_needles():
     assert name == "TestBot" and tasks is Tasks["test"]
 
 def test_network():
+    """Tests network connection
+    """
+
     network: ShadowNetwork = ShadowNetwork(host="127.0.0.1", port=8080)
-    network.run_server()
 
-    assert network.bot.alive()
+    network.serve()
+    assert network.alive()
 
-    event, data = network.build(name="TestBot2", tasks=Tasks["test"])
-
+    req: Tuple[str, Dict[str, partial]] = ("TestBot2", Tasks["test"])
+    event, data = network.send(message=("build", req))
     name, tasks = data
-
     assert event == "BUILD" and name == "TestBot2" and not tasks["flip"]()
 
-    event, data = network.send(message=("shutdown", None))
+    network.kill()
+    assert not network.alive()
 
-    assert event == "SHUTDOWN" and data == True
 
-    assert not network.bot.alive()
-
-def test_network_proxy():
-
-    proxy: ShadowNetworkProxy = ShadowNetworkProxy(host="127.0.0.1", port=8080)
-    proxy.serve()
-    assert proxy.alive()
-
-    event, data = proxy.build(name="TestBot2", tasks=Tasks["test"])
-
-    name, tasks = data
-
-    assert event == "BUILD" and name == "TestBot2" and not tasks["flip"]()
-
-    proxy.kill()
-    assert not proxy.alive()
