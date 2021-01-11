@@ -35,21 +35,9 @@ class IShadowBot(ABC):
     """ShadowBot Interface"""
 
     @abstractmethod
-    def request(self, type: str, task: Optional[str]):
+    def request(self, event: str, task: Optional[str]):
         raise NotImplementedError()
 
     @abstractmethod
     def response(self):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def start(self):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def stop(self):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def alive(self):
         raise NotImplementedError()

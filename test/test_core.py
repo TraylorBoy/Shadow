@@ -1,109 +1,129 @@
 import pytest
-import time
 
 from multiprocessing import Queue
-from threading import Thread
+from typing import Any, Optional, Tuple
 
-from shadow import ShadowBot, ShadowBotProxy, ShadowClone, ShadowNetwork, Needles, ShadowNetworkProxy
+from shadow import ShadowClone, ShadowBot
 from shadow.helpers import Tasks
 
-from functools import partial
-from typing import Tuple, Dict
+# -------------------------------- ShadowClone ------------------------------- #
 
-@pytest.fixture
-def result_que():
-    return Queue()
+def clone(task: str, *args, **kwargs):
+    """Creates a ShadowClone to perform the given task
 
-def test_clone(result_que):
+    Args:
+        task (str): Task to perform
 
-    clone: ShadowClone = ShadowClone(pipe=result_que, task=Tasks["test"]["flip"])
-
-    t: Thread = Thread(target=clone.perform, name="flip")
-    t.start()
-    t.join()
-
-    if not result_que.empty():
-        task, result = result_que.get()
-
-        assert task == "flip" and result == False
-
-def test_bot():
-
-    bot: ShadowBot = ShadowBot(name="TestBot", tasks=Tasks["test"])
-
-    assert bot.id == "TestBot"
-    assert bot.manager is Tasks["test"]
-
-    bot.start()
-    assert bot.alive()
-    assert bot.start() is None
-
-    bot.stop()
-    assert not bot.alive()
-    assert bot.stop() is None
-
-    bot.start()
-    assert bot.alive()
-
-    bot.request(type="perform", task="flip")
-    bot.request(type="wait", task="flip")
-
-    task, result = bot.response()
-
-    assert task == "flip" and result == False
-
-    bot.stop()
-    assert not bot.alive()
-
-def test_bot_proxy():
-
-    proxy: ShadowBotProxy = ShadowBotProxy(name="TestBot", tasks=Tasks["test"])
-
-    proxy.start()
-    assert proxy.alive()
-
-    proxy.perform(task="flip")
-
-    task, result = proxy.wait(task="flip")
-
-    assert task == "flip" and result == False
-
-    proxy.stop()
-    assert not proxy.alive()
-
-def test_needles():
-
-    needles: Needles = Needles()
-    needles.reset()
-
-    assert not needles.can_load()
-
-    needles.sew(bot=ShadowBot(name="TestBot", tasks=Tasks["test"]))
-
-    time.sleep(1)
-
-    assert needles.can_load()
-
-    essence: Tuple[str, Dict[str, partial]] = needles.retract(name="TestBot")
-
-    name, tasks = essence
-    assert name == "TestBot" and tasks is Tasks["test"]
-
-def test_network():
-    """Tests network connection
+    Returns:
+        [Any]: Result from task or False if task did not complete
     """
 
-    network: ShadowNetwork = ShadowNetwork(host="127.0.0.1", port=8080)
+    results: Queue = Queue()
+    clone: ShadowClone = ShadowClone(name=task, args=(Tasks.get(task, *args, **kwargs), results))
 
-    network.serve()
-    assert network.alive()
+    clone.start()
+    clone.join()
 
-    req: Tuple[str, Dict[str, partial]] = ("TestBot2", Tasks["test"])
-    event, data = network.send(message=("build", req))
-    name, tasks = data
-    assert event == "BUILD" and name == "TestBot2" and not tasks["flip"]()
+    return results.get()
 
-    network.kill()
-    assert not network.alive()
+def test_clone():
+    """Tests the ShadowClone Thread subclass
+    """
 
+    result: Any = clone(task="sleep", sleep_for=3)
+    assert not isinstance(result, bool)
 
+    task, did_sleep = result
+    assert task == "sleep" and did_sleep
+
+# --------------------------------- ShadowBot -------------------------------- #
+
+def turn_on(bot: ShadowBot):
+    """Turn the ShadowBot on
+
+    Args:
+        bot (ShadowBot): ShadowBot instance to start running
+
+    Returns:
+        [bool]: ShadowBot successfully started or not
+    """
+
+    bot.start()
+    return bot.alive()
+
+def turn_off(bot: ShadowBot):
+    """Turn the ShadowBot off
+
+    Args:
+        bot (ShadowBot): ShadowBot instance to stop running
+
+    Returns:
+        [bool]: ShadowBot successfully stopped or not
+    """
+
+    bot.stop()
+    return not bot.alive()
+
+def restart(bot: ShadowBot):
+    """Turn off and turn back on the ShadowBot
+
+    Args:
+        bot (ShadowBot): ShadowBot instance to restart
+
+    Returns:
+        [bool]: ShadowBot successfully restarted or not
+    """
+
+    bot.restart()
+    return bot.alive()
+
+def run(bot: ShadowBot, event: str, task: Optional[str]):
+
+    turn_on(bot)
+
+    bot.request(event, task)
+    resp: Tuple[str, Any] = bot.response(task)
+
+    turn_off(bot) if event != "stop" else None
+
+    return resp[1]
+
+@pytest.fixture
+def bot():
+    """ShadowBot instance
+
+    Returns:
+        [ShadowBot]: Instantiated with factory tasks
+    """
+
+    _tasks = {
+        "sleep": Tasks.get("sleep", sleep_for=1),
+        "sum": Tasks.get("sum", 1, 1)
+    }
+
+    return ShadowBot(name="TestBot", tasks=_tasks)
+
+def test_bot(bot):
+    """Tests the ShadowBot class
+    """
+
+    assert bot.perform(task="does not exist") is None
+    assert bot.wait(task="does not exist") is None
+    assert bot.jutsu(task="does not exist") is None
+    assert bot.result(task="does not exist") is None
+    assert bot.hist(task="does not exist") is None
+    assert bot.alive(task="does not exist") is None
+    assert bot.alive(task="sleep") is None
+    assert bot.stop() is None
+    assert bot.response(task="sleep") is None
+
+    assert turn_on(bot)
+    assert turn_off(bot)
+    assert restart(bot)
+    assert turn_off(bot)
+
+    assert run(bot, event="stop", task=None)
+    assert run(bot, event="perform", task="sleep")
+
+    _sum: int = run(bot, event="perform", task="sum")
+    assert _sum == 2

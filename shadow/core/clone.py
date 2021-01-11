@@ -1,56 +1,34 @@
-"""Task worker"""
+"""Task worker thread class"""
 
-import os
-
-from threading import Thread, current_thread
-
-from functools import partial
-
-from typing import Optional, Any
+from threading import Thread
 
 from loguru import logger
 
-
-class ShadowClone(object):
+from typing import Optional, Any, Dict, List
+class ShadowClone(Thread):
 
     """Slave class for perfoming tasks on seperate threads for the ShadowBot instance"""
 
-    def __init__(self, pipe: Any, task: partial):
-        """Initializes the task worker instance
+    def __init__(self, group=None, target=None, name=None, args=(), kwargs=None):
+        """Thread.__init__ override"""
 
-        Args:
-            pipe (Any): The Queue object ShadowClone should put the result in after completing the assigned task
-            task (partial): Task for ShadowClone to perform
-        """
+        # Make sure subclass has access to passed arguments
+        super(ShadowClone, self).__init__(group=group, target=target, name=name)
 
-        self.pipe: Any = pipe
-        self.task: partial = task
-        self.soul: Optional[Thread] = None
+        self.args: List[Any] = args
+        self.kwargs: Dict[str, Any] = kwargs
 
-    def perform(self):
-        """Calls assigned task and puts the result in the pipe set during initialization"""
+    def run(self):
+        """Thread.run() override"""
 
-        self.soul = current_thread()
+        task, pipe = self.args
 
-        logger.debug(f"Performing task: {self.task}")
-        logger.debug(f"Master PID: {os.getppid()} {self.soul.name} PID: {os.getpid()}")
+        logger.debug(f"Performing task: {task}")
 
-        try:
+        result: Optional[Any] = task()
 
-            result: Optional[Any] = self.task()
+        logger.debug(f"Putting result into pipe: ({self.name}, {result}) -> {pipe}")
 
-            self.pipe.put((self.soul.name, result), block=True, timeout=10)
+        pipe.put((self.name, result))
 
-            logger.debug(f"Completed task, result: {result}")
-
-        except Exception as e:  # pragma: no cover
-
-            logger.warning(
-                f"Error occured while performing task: {self.soul.name} - {self.task}"
-            )
-
-            logger.exception(e)
-
-            self.pipe.put((self.soul.name, e))
-
-
+        logger.debug("Task completed, rejoining")
