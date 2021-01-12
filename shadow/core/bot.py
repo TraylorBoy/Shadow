@@ -33,7 +33,7 @@ class ShadowBot(IShadowBot):
         self.tasks: Dict[str, partial] = tasks
         self.state: str = "off"
         self.events: Dict[str, Callable] = {
-            "stop": self.kill,
+            "kill": self.kill,
             "perform": self.perform,
             "wait": self.wait,
             "result": self.result
@@ -47,6 +47,70 @@ class ShadowBot(IShadowBot):
 
         self.clones: Dict[str, ShadowClone] = {}
         self.history: Dict[str, Optional[Any]] = {}
+
+# --------------------------------- Interface -------------------------------- #
+
+    def request(self, event: str, task: Optional[str]):
+        """Sends a request to the ShadowBot
+
+        Args:
+            event (str): Type of request to send
+            task (Optional[str]): Task to send to the ShadowBot if the request type is "wait" or "perform"
+        """
+
+        if not self.alive():
+            logger.critical("ShadowBot is not running")
+            return None
+
+        self.requests.put((event, task))
+        time.sleep(1)
+
+    def response(self, task: str):
+        """Check for a response from the ShadowBot
+
+        Args:
+            task (str): Task to retrieve the result for
+
+        Returns:
+            [Optional[Tuple[str, any]]]: Result from the requested task
+        """
+
+        self.request(event="wait", task=task)
+        self.request(event="result", task=task)
+
+        if self.responses.empty():
+            logger.warning("No responses were found from ShadowBot")
+            return None
+
+        response: Tuple[str, Any] = self.responses.get()
+
+        logger.info(f"Result compiled: {response}")
+
+        return response
+
+    def alive(self, task: Optional[str] = None): # pragma: no cover
+        """Checks if ShadowBot process has started
+
+        Will check if ShadowClone thread is still running if task is given instead.
+
+        Args:
+            task (Optional[str]): ShadowClone thread to check for. Defaults to None.
+
+        Returns:
+            [bool]: ShadowBot/ShadowClone is running or not
+        """
+
+        if task is None: return self.soul.is_alive()
+
+        if task not in self.tasks.keys():
+            logger.critical(f"{task} not found")
+            return None
+
+        if task not in self.clones.keys():
+            logger.warning(f"{task} not performed")
+            return None
+
+        return self.clones[task].is_alive()
 
     def perform(self, task: str):
         """Performs task retrieved from the task queue
@@ -100,6 +164,92 @@ class ShadowBot(IShadowBot):
         self.clones[task] = ShadowClone(name=task, args=(self.tasks[task], self.results))
         self.clones[task].start()
 
+    def kill(self):
+        """Transitions ShadowBot state from on to off
+        """
+
+        self.state = "off"
+        self.responses.put(("KILL", True))
+
+# ----------------------------------- State ---------------------------------- #
+
+    def start(self):
+        """Transitions state from off to on and starts the ShadowBot's process
+
+        The ShadowBot opens a socket on the given port and starts listening for incoming tasks.
+
+        Args:
+            port (int): Port to listen on
+        """
+
+        if self.alive():
+            logger.warning("Already running")
+            return None
+
+        logger.info("Starting up")
+
+        self.state = "on"
+
+        try:
+            self.soul.start()
+        except AssertionError:
+            # Process already ran, set a new one
+            self.restart()
+            self.start()
+
+    def stop(self):
+        """Stop the running ShadowBot process"""
+
+        if not self.alive():
+            logger.warning("ShadowBot is already stopped")
+            return None
+
+        logger.info("Stopping")
+
+        # Send a kill signal
+        self.requests.put(("kill", None))
+
+        # Wait for process to rejoin
+        self.soul.join(timeout=10)
+
+    def restart(self):
+        """Re-instantiates the ShadowBot's process"""
+
+        logger.info("Restarting")
+
+        if self.alive(): self.stop()
+
+        self.__init__(self.name, self.tasks)
+
+        self.start()
+
+# ---------------------------------- Core --------------------------------- #
+
+    @logger.catch
+    def core(self):
+        """Method is called when the process is started"""
+
+        while True:
+            if self.state == "off":  # pragma: no cover
+                logger.warning("Shutting down")
+                break
+
+            if not self.requests.empty():
+                event, task = self.requests.get()
+                logger.info(f"Request received: ({event}, {task})")
+
+                if event in self.events.keys():
+                    logger.info(f"Handling event: {event}")
+                    self.events[event]() if event not in ["perform", "wait", "result"] else self.events[event](task)
+
+                else: # pragma: no cover
+                    logger.critical(f"Unable to handle event: {event}")
+                    continue
+
+                logger.info(f"Successfully handled event: {event}")
+
+        logger.info("ShadowBot stopped successfully")
+
     def compile(self):
         """Checks for results in the results queue and stores them in the history
         """
@@ -144,150 +294,4 @@ class ShadowBot(IShadowBot):
             return None
 
         return self.history[task]
-
-    def alive(self, task: Optional[str] = None): # pragma: no cover
-        """Checks if ShadowBot process has started
-
-        Will check if ShadowClone thread is still running if task is given instead.
-
-        Args:
-            task (Optional[str]): ShadowClone thread to check for. Defaults to None.
-
-        Returns:
-            [bool]: ShadowBot/ShadowClone is running or not
-        """
-
-        if task is None: return self.soul.is_alive()
-
-        if task not in self.tasks.keys():
-            logger.critical(f"{task} not found")
-            return None
-
-        if task not in self.clones.keys():
-            logger.warning(f"{task} not performed")
-            return None
-
-        return self.clones[task].is_alive()
-
-    def start(self):
-        """Transitions state from off to on and starts the ShadowBot's process
-
-        The ShadowBot opens a socket on the given port and starts listening for incoming tasks.
-
-        Args:
-            port (int): Port to listen on
-        """
-
-        if self.alive():
-            logger.warning("Already running")
-            return None
-
-        logger.info("Starting up")
-
-        self.state = "on"
-
-        try:
-            self.soul.start()
-        except AssertionError:
-            # Process already ran, set a new one
-            self.restart()
-            self.start()
-
-    def stop(self):
-        """Stop the running ShadowBot process"""
-
-        if not self.alive():
-            logger.warning("ShadowBot is already stopped")
-            return None
-
-        logger.info("Stopping")
-
-        # Send a kill signal
-        self.requests.put(("stop", None))
-
-        # Wait for process to rejoin
-        self.soul.join(timeout=10)
-
-    def restart(self):
-        """Re-instantiates the ShadowBot's process"""
-
-        logger.info("Restarting")
-
-        if self.alive(): self.stop()
-
-        self.__init__(self.name, self.tasks)
-
-        self.start()
-
-    def kill(self):
-        """Transitions ShadowBot state from on to off
-        """
-
-        self.state = "off"
-        self.responses.put(("KILL", True))
-
-    @logger.catch
-    def core(self):
-        """Method is called when the process is started"""
-
-        while True:
-            if self.state == "off":  # pragma: no cover
-                logger.warning("Shutting down")
-                break
-
-            if not self.requests.empty():
-                event, task = self.requests.get()
-                logger.info(f"Request received: ({event}, {task})")
-
-                if event in self.events.keys():
-                    logger.info(f"Handling event: {event}")
-                    self.events[event]() if event not in ["perform", "wait", "result"] else self.events[event](task)
-
-                else: # pragma: no cover
-                    logger.critical(f"Unable to handle event: {event}")
-                    continue
-
-                logger.info(f"Successfully handled event: {event}")
-
-        logger.info("ShadowBot stopped successfully")
-
-    @logger.catch
-    def request(self, event: str, task: Optional[str]):
-        """Sends a request to the ShadowBot
-
-        Args:
-            event (str): Type of request to send
-            task (Optional[str]): Task to send to the ShadowBot if the request type is "wait" or "perform"
-        """
-
-        if not self.alive():
-            logger.critical("ShadowBot is not running")
-            return None
-
-        self.requests.put((event, task))
-        time.sleep(1)
-
-    @logger.catch
-    def response(self, task: str):
-        """Check for a response from the ShadowBot
-
-        Args:
-            task (str): Task to retrieve the result for
-
-        Returns:
-            [Optional[Tuple[str, any]]]: Result from the requested task
-        """
-
-        self.request(event="wait", task=task)
-        self.request(event="result", task=task)
-
-        if self.responses.empty():
-            logger.warning("No responses were found from ShadowBot")
-            return None
-
-        response: Tuple[str, Any] = self.responses.get()
-
-        logger.info(f"Result compiled: {response}")
-
-        return response
 

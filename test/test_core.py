@@ -94,7 +94,7 @@ def run(bot: ShadowBot, event: str, task: Optional[str]):
     bot.request(event, task)
     resp: Tuple[str, Any] = bot.response(task)
 
-    turn_off(bot) if event != "stop" else None
+    turn_off(bot) if event != "kill" else None
 
     return resp[1]
 
@@ -132,15 +132,51 @@ def test_bot(bot):
     assert restart(bot)
     assert turn_off(bot)
 
-    assert run(bot, event="stop", task=None)
+    assert run(bot, event="kill", task=None)
     assert run(bot, event="perform", task="sleep")
 
     _sum: int = run(bot, event="perform", task="sum")
     assert _sum == 2
 
-def test_proxy(bot):
+def test_bot_proxy(bot):
     """Tests the ShadowBotProxy class
     """
 
     proxy: ShadowBotProxy = ShadowBotProxy(shadowbot=bot)
-    pass
+
+    assert proxy.kill() is None
+    assert proxy.wait(task="none") is None
+    assert proxy.perform(task="none") is None
+    assert proxy.request(event="hi", task=None) is None
+
+    with proxy:
+        assert proxy.alive()
+        assert proxy.jutsu(task="sleep")[1]
+        assert proxy.jutsu(task="sum")[1] == 2
+
+    assert not proxy.alive()
+
+    proxy_two: ShadowBotProxy = ShadowBotProxy(shadowbot=bot)
+
+    # Tests singleton instance
+    assert proxy_two.bot is proxy.bot
+
+
+# ---------------------------------- Network --------------------------------- #
+
+def test_needles():
+    assert True
+
+def test_server():
+    assert True
+
+def test_network():
+    assert True
+
+def test_network_proxy():
+    assert True
+
+# ---------------------------------- Client ---------------------------------- #
+
+def test_cli():
+    assert True

@@ -41,3 +41,23 @@ class IShadowBot(ABC):
     @abstractmethod
     def response(self, task: str):
         raise NotImplementedError()
+
+    @abstractmethod
+    def alive(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def perform(self, task: str):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def wait(self, task: str):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def jutsu(self, task: str):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def kill(self):
+        raise NotImplementedError()
