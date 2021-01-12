@@ -3,7 +3,7 @@ import pytest
 from multiprocessing import Queue
 from typing import Any, Optional, Tuple
 
-from shadow import ShadowClone, ShadowBot
+from shadow import ShadowClone, ShadowBot, ShadowBotProxy
 from shadow.helpers import Tasks
 
 # -------------------------------- ShadowClone ------------------------------- #
@@ -78,6 +78,16 @@ def restart(bot: ShadowBot):
     return bot.alive()
 
 def run(bot: ShadowBot, event: str, task: Optional[str]):
+    """Runs the ShadowBot and returns the result of the task
+
+    Args:
+        bot (ShadowBot): Instantiated ShadowBot instance
+        event (str): Event for ShadowBot to handle
+        task (Optional[str]): Task to perform
+
+    Returns:
+        [Tuple[str, Any]]: Response from ShadowBot instance
+    """
 
     turn_on(bot)
 
@@ -127,3 +137,10 @@ def test_bot(bot):
 
     _sum: int = run(bot, event="perform", task="sum")
     assert _sum == 2
+
+def test_proxy(bot):
+    """Tests the ShadowBotProxy class
+    """
+
+    proxy: ShadowBotProxy = ShadowBotProxy(shadowbot=bot)
+    pass

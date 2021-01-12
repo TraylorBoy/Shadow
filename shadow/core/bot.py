@@ -32,6 +32,12 @@ class ShadowBot(IShadowBot):
         self.name: str = name
         self.tasks: Dict[str, partial] = tasks
         self.state: str = "off"
+        self.events: Dict[str, Callable] = {
+            "stop": self.kill,
+            "perform": self.perform,
+            "wait": self.wait,
+            "result": self.result
+        }
 
         self.context: Any = mp.get_context(method="spawn")
         self.soul: self.context.Process = self.context.Process(target=self.core, daemon=True)
@@ -233,16 +239,9 @@ class ShadowBot(IShadowBot):
                 event, task = self.requests.get()
                 logger.info(f"Request received: ({event}, {task})")
 
-                events: Dict[str, Callable] = {
-                    "stop": self.kill,
-                    "perform": self.perform,
-                    "wait": self.wait,
-                    "result": self.result
-                }
-
-                if event in events.keys():
+                if event in self.events.keys():
                     logger.info(f"Handling event: {event}")
-                    events[event]() if event not in ["perform", "wait", "result"] else events[event](task)
+                    self.events[event]() if event not in ["perform", "wait", "result"] else self.events[event](task)
 
                 else: # pragma: no cover
                     logger.critical(f"Unable to handle event: {event}")
@@ -288,7 +287,7 @@ class ShadowBot(IShadowBot):
 
         response: Tuple[str, Any] = self.responses.get()
 
-        logger.info(f"Result compiled, sending response: {response}")
+        logger.info(f"Result compiled: {response}")
 
         return response
 

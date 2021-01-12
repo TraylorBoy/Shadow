@@ -39,5 +39,5 @@ class IShadowBot(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def response(self):
+    def response(self, task: str):
         raise NotImplementedError()

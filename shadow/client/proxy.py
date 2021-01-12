@@ -111,79 +111,39 @@ class ShadowNetworkProxy(IShadowNetwork):
         return self.send(message=("build", data))
 
 
+# TODO: Make proxy context manager
 class ShadowBotProxy(IShadowBot):
 
-    """ShadowBot and ShadowClone proxy class"""
+    """ShadowBot proxy class"""
 
-    def __init__(self, name: str, tasks: Dict[str, Optional[Any]]):
-        """Set the proxies initial state
+    def __init__(self, shadowbot: ShadowBot):
+        """Initizalises a proxy to the ShadowBot instance
 
         Args:
-            name (str): Name of the ShadowBot
-            tasks (Dict[str, Optional[Any]]): Tasks that the ShadowBot should perform
+            shadowbot (ShadowBot): The instantiated ShadowBot instance to connect to
         """
 
-        self.bot: ShadowBot = ShadowBot(name, tasks)
+        self.bot: ShadowBot = shadowbot
+        self.events: self.bot.events.keys()
 
-    def alive(self):
-        """Checks if ShadowBot process has started
-
-        Returns:
-            [bool]: Process is running or not
-        """
-
-        return self.bot.alive()
-
-    def start(self):
-        """Transitions state from off to on and starts the ShadowBot's process"""
-
-        self.bot.start()
-
-    def stop(self):
-        """Stop the running ShadowBot process"""
-
-        self.bot.stop()
-
-    @logger.catch
-    def request(self, type: str, task: Optional[str]):
+    def request(self, event: str, task: Optional[str]):
         """Sends a request to the ShadowBot
 
         Args:
-            type (str): Type of request to send
+            event (str): Type of request to send
             task (Optional[str]): Task to send to the ShadowBot if the request type is "wait" or "perform"
         """
 
-        self.bot.request(type, task)
+        self.bot.request(event, task)
 
-    @logger.catch
-    def response(self):
+    def response(self, task: str):
         """Check for a response from the ShadowBot
+
+        Args:
+            task (str): Task to retrieve the result for
 
         Returns:
             [Optional[Tuple[str, any]]]: Result from the requested task
         """
 
-        return self.bot.response()
-
-    def wait(self, task: str):
-        """Waits for task to complete
-
-        Args:
-            task (str): Task to wait for
-
-        Returns:
-            [Optional[Tuple[str, any]]]: Result from the waited task
-        """
-
-        self.request(type="wait", task=task)
-
-        return self.response()
-
-    def perform(self, task: str):
-        """Performs the task specified
-
-        Args:
-            task (str): Task to be executed by the ShadowBot
-        """
-
-        self.request(type="perform", task=task)
+        return self.bot.response(task)
