@@ -1,3 +1,3 @@
-from .core import ShadowBot, ShadowClone, IShadowBot, ShadowNetwork, IShadowNetwork
-from .client import Shadow, ShadowBotProxy, ShadowNetworkProxy
-from .server import Needles, ShadowRequest, ShadowServer
+from .core import ShadowBot, ShadowClone, IShadowBot, ShadowNetwork, IShadowNetwork, ShadowBotProxy, ShadowNetworkProxy, Needles
+from .client import Shadow
+from .server import ShadowRequest, ShadowServer

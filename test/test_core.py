@@ -3,7 +3,7 @@ import pytest
 from multiprocessing import Queue
 from typing import Any, Optional, Tuple
 
-from shadow import ShadowClone, ShadowBot, ShadowBotProxy
+from shadow import ShadowClone, ShadowBot, ShadowBotProxy, Needles
 from shadow.helpers import Tasks
 
 # -------------------------------- ShadowClone ------------------------------- #
@@ -151,8 +151,8 @@ def test_bot_proxy(bot):
 
     with proxy:
         assert proxy.alive()
-        assert proxy.jutsu(task="sleep")[1]
-        assert proxy.jutsu(task="sum")[1] == 2
+        assert proxy.jutsu(task="sleep")
+        assert proxy.jutsu(task="sum") == 2
 
     assert not proxy.alive()
 
@@ -164,8 +164,32 @@ def test_bot_proxy(bot):
 
 # ---------------------------------- Network --------------------------------- #
 
-def test_needles():
-    assert True
+def test_needles(bot):
+    """Tests the needles class
+    """
+
+    needles: Needles = Needles()
+    needles.reset()
+
+    with needles:
+        assert not needles.can_load()
+
+        needles.sew(bot.essence)
+        assert needles.check(bot.name)
+
+    with needles:
+        assert needles.can_load()
+        assert needles.check(bot.name)
+
+        proxy: ShadowBotProxy = ShadowBotProxy(shadowbot=needles.get(bot.name))
+
+        assert proxy.bot.name == bot.name
+
+        with proxy:
+            assert proxy.jutsu(task="sum") == 2
+
+        needles.retract(bot.name)
+        assert not needles.check(bot.name)
 
 def test_server():
     assert True

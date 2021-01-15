@@ -30,7 +30,7 @@ class ShadowNetworkProxy(IShadowNetwork):
 
     """ShadowNetwork Proxy class"""
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 0):
+    def __init__(self, network: ShadowNetwork):
         """Instantiates the shadow network instance
 
         Args:
@@ -38,7 +38,7 @@ class ShadowNetworkProxy(IShadowNetwork):
             port (int, optional): Port the server is listening on. Defaults to 0.
         """
 
-        self.network: ShadowNetwork = ShadowNetwork(host, port)
+        self.network: ShadowNetwork = network
 
     def serve(self):
         """Start running the ServerBot
@@ -120,7 +120,6 @@ class ShadowBotProxy(Borg, IShadowBot):
             shadowbot (ShadowBot): The instantiated ShadowBot instance to connect to
         """
 
-        # Makes proxy a singleton instance
         self.__setup(shadowbot)
 
     def __setup(self, shadowbot: ShadowBot): # pragma: no cover
@@ -229,7 +228,7 @@ class ShadowBotProxy(Borg, IShadowBot):
             task (str): Task to retrieve the result for
 
         Returns:
-            [Optional[Tuple[str, any]]]: Result from the requested task
+            [Optional[Any]]: Result from the requested task
         """
 
         self.perform(task)
@@ -237,7 +236,8 @@ class ShadowBotProxy(Borg, IShadowBot):
 
         response: Tuple[str, Any] = self.response(task)
 
-        return response
+        _, result = response
+        return result
 
     # ---------------------------------- Context --------------------------------- #
 

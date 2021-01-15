@@ -4,11 +4,11 @@ import time
 import multiprocessing as mp
 
 from functools import partial
-
 from typing import Dict, Any, Optional, Callable, Tuple
 
 from shadow.core.clone import ShadowClone
 from shadow.core.interface import IShadowBot
+from shadow.helpers import Needle
 
 from loguru import logger
 
@@ -21,7 +21,7 @@ class ShadowBot(IShadowBot):
 
         return f"{self.name}, {self.tasks} - {self.state}"
 
-    def __init__(self, name: str, tasks: Dict[str, partial]):
+    def __init__(self, name: str, tasks: Dict[str, partial], history: Dict[str, Optional[Any]] = {}):
         """Sets ShadowBot's default properties and state
 
         Args:
@@ -40,13 +40,13 @@ class ShadowBot(IShadowBot):
         }
 
         self.context: Any = mp.get_context(method="spawn")
-        self.soul: self.context.Process = self.context.Process(target=self.core, daemon=True)
+        self.soul: self.context.Process = self.context.Process(target=self.core, name=self.name, daemon=True)
         self.results: self.context.Queue = self.context.Queue()
         self.requests: self.context.Queue = self.context.Queue()
         self.responses: self.context.Queue = self.context.Queue()
 
         self.clones: Dict[str, ShadowClone] = {}
-        self.history: Dict[str, Optional[Any]] = {}
+        self.history: Dict[str, Optional[Any]] = history
 
 # --------------------------------- Interface -------------------------------- #
 
@@ -295,3 +295,12 @@ class ShadowBot(IShadowBot):
 
         return self.history[task]
 
+    @property
+    def essence(self):
+        """ShadowBot's essence property
+
+        Returns:
+            [NamedTuple]: The ShadowBot's name, tasks, and history used to save and load the instance on the network
+        """
+
+        return Needle(self.name, self.tasks, self.history)
