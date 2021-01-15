@@ -4,12 +4,14 @@ import os
 import dill
 
 from copy import copy
-from typing import Dict
+
+from typing import Dict, Any
 
 from loguru import logger
 
-from shadow.core.bot import ShadowBot
-from shadow.helpers import Borg, Needle
+from .bot import ShadowBot
+from .needle import Needle
+from shadow.core.helpers import Borg
 
 from typing import List, Any
 

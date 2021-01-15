@@ -3,10 +3,8 @@
 import socket
 import dill
 
-from threading import Thread
-
 from shadow.server.request import ShadowRequest
-from shadow.helpers import Borg
+from shadow.core.helpers import Borg
 
 from typing import Tuple, Optional, List, Any, Dict
 from loguru import logger
@@ -124,9 +122,11 @@ class ShadowServer(Borg):
     def serve(self):
         """Starts listening for incoming requests
         """
+
         # Find an open socket to connect to
         self.assign()
 
+        # No socket found
         if self.sock is None:
             return None
 

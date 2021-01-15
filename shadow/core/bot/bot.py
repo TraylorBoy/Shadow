@@ -6,9 +6,9 @@ import multiprocessing as mp
 from functools import partial
 from typing import Dict, Any, Optional, Callable, Tuple
 
-from shadow.core.clone import ShadowClone
-from shadow.core.interface import IShadowBot
-from shadow.helpers import Needle
+from .clone import ShadowClone
+from .interface import IShadowBot
+from .needle import Needle
 
 from loguru import logger
 

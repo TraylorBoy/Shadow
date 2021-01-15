@@ -1,7 +1,6 @@
 """Request class for handling requests sent from the client"""
 
-from shadow.core.needles import Needles
-from shadow.core.bot import ShadowBot
+from shadow.core import ShadowBot, Needles
 
 from functools import partial
 from typing import Optional, Any, Dict, Callable, Tuple, List

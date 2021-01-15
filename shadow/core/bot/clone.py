@@ -5,6 +5,7 @@ from threading import Thread
 from loguru import logger
 
 from typing import Optional, Any, Dict, List
+
 class ShadowClone(Thread):
 
     """Slave class for perfoming tasks on seperate threads for the ShadowBot instance"""

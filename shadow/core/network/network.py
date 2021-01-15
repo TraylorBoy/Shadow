@@ -7,10 +7,10 @@ import socket
 from datetime import datetime
 
 from functools import partial
-from typing import Optional, Any, Dict, Tuple, List
+from typing import Optional, Any, Dict, Tuple
 
-from shadow.helpers import Borg
-from shadow.core.interface import IShadowNetwork
+from shadow.core.helpers import Borg
+from .interface import IShadowNetwork
 from shadow.server import ShadowServer
 from shadow.core.bot import ShadowBot
 

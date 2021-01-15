@@ -4,7 +4,7 @@ from multiprocessing import Queue
 from typing import Any, Optional, Tuple
 
 from shadow import ShadowClone, ShadowBot, ShadowBotProxy, Needles
-from shadow.helpers import Tasks
+from shadow.core.helpers import Tasks
 
 # -------------------------------- ShadowClone ------------------------------- #
 
@@ -142,7 +142,7 @@ def test_bot_proxy(bot):
     """Tests the ShadowBotProxy class
     """
 
-    proxy: ShadowBotProxy = ShadowBotProxy(shadowbot=bot)
+    proxy: ShadowBotProxy = ShadowBotProxy(essence=bot.essence)
 
     assert proxy.kill() is None
     assert proxy.wait(task="none") is None
@@ -156,7 +156,7 @@ def test_bot_proxy(bot):
 
     assert not proxy.alive()
 
-    proxy_two: ShadowBotProxy = ShadowBotProxy(shadowbot=bot)
+    proxy_two: ShadowBotProxy = ShadowBotProxy(essence=bot.essence)
 
     # Tests singleton instance
     assert proxy_two.bot is proxy.bot
@@ -181,7 +181,8 @@ def test_needles(bot):
         assert needles.can_load()
         assert needles.check(bot.name)
 
-        proxy: ShadowBotProxy = ShadowBotProxy(shadowbot=needles.get(bot.name))
+        shadowbot: ShadowBot = needles.get(bot.name)
+        proxy: ShadowBotProxy = ShadowBotProxy(essence=shadowbot.essence)
 
         assert proxy.bot.name == bot.name
 
