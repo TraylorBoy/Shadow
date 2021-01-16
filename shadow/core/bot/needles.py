@@ -13,34 +13,19 @@ from .bot import ShadowBot
 from .needle import Needle
 from shadow.core.helpers import Borg
 
-from typing import List, Any
+from typing import List, Any, Tuple, Optional
+from functools import partial
 
-class Needles(Borg):
+class Needles:
 
     """Manages ShadowBots on the ShadowNetwork"""
 
     def __init__(self):
         """Sets initial needles state"""
 
-        self.__setup()
+        self.pool: Dict[str, Needle] = {}
+        self.cache_file: str = "needles.cache"
         self.__path: str = os.path.join("shadow/data/cache/", self.cache_file)
-
-    def __setup(self): # pragma: no cover
-        """Setup singleton instance
-        """
-
-        super().__init__()
-
-        ATTR: List[str] = ["pool", "cache_file"]
-
-        setters: Dict[str, Any] = {
-            "pool": {},
-            "cache_file": "needles.cache"
-        }
-
-        for attribute in ATTR:
-            if not hasattr(self, attribute):
-                setattr(self, attribute, setters[attribute])
 
     # ---------------------------------- Context --------------------------------- #
 

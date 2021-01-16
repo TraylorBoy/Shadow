@@ -1,6 +1,6 @@
 """Interfaces for the Shadow package"""
 
-from typing import Optional, Tuple, Any
+from typing import Optional, Any
 
 from abc import ABC, abstractmethod
 
@@ -18,13 +18,13 @@ class IShadowNetwork(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def send(self, message: Tuple[str, Optional[Any]]):
-        raise NotImplementedError()
-
-    @abstractmethod
     def alive(self):
         raise NotImplementedError()
 
     @abstractmethod
     def status(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def request(self, event: str, data: Optional[Any]):
         raise NotImplementedError()

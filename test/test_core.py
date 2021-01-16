@@ -3,7 +3,7 @@ import pytest
 from multiprocessing import Queue
 from typing import Any, Optional, Tuple
 
-from shadow import ShadowClone, ShadowBot, ShadowBotProxy, Needles
+from shadow import ShadowClone, ShadowBot, ShadowBotProxy, Needles, ShadowNetwork
 from shadow.core.helpers import Tasks
 
 # -------------------------------- ShadowClone ------------------------------- #
@@ -92,6 +92,7 @@ def run(bot: ShadowBot, event: str, task: Optional[str]):
     turn_on(bot)
 
     bot.request(event, task)
+    bot.request("wait", task)
     resp: Tuple[str, Any] = bot.response(task)
 
     turn_off(bot) if event != "kill" else None
@@ -156,14 +157,6 @@ def test_bot_proxy(bot):
 
     assert not proxy.alive()
 
-    proxy_two: ShadowBotProxy = ShadowBotProxy(essence=bot.essence)
-
-    # Tests singleton instance
-    assert proxy_two.bot is proxy.bot
-
-
-# ---------------------------------- Network --------------------------------- #
-
 def test_needles(bot):
     """Tests the needles class
     """
@@ -192,16 +185,31 @@ def test_needles(bot):
         needles.retract(bot.name)
         assert not needles.check(bot.name)
 
-def test_server():
-    assert True
+# ---------------------------------- Network --------------------------------- #
 
-def test_network():
-    assert True
+def test_network(bot):
+    """Tests the ShadowNetwork, ShadowRequest, ShadowServer, and ShadowClient classes
+    """
+
+    network: ShadowNetwork = ShadowNetwork(host="127.0.0.1", port=8080)
+
+    assert network.serve()
+    assert network.alive()
+    assert network.status()
+
+    event, data = network.request(event="needles")
+    assert event == "NEEDLES" and len(data) == 0
+
+    event, successful = network.request(event="build", data=bot.essence)
+    assert event == "BUILD" and successful
+
+    event, data = network.request(event="needles")
+    assert event == "NEEDLES" and len(data) == 1 and bot.name in data.keys()
+
+    network.kill()
+    assert not network.alive()
+    assert network.status() is None
 
 def test_network_proxy():
     assert True
 
-# ---------------------------------- Client ---------------------------------- #
-
-def test_cli():
-    assert True

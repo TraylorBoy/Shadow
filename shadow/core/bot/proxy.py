@@ -2,12 +2,11 @@
 
 from datetime import datetime
 
-from typing import Any, Dict, Optional, Tuple, List
+from typing import Any, Optional, Tuple, List
 
 from .interface import IShadowBot
 from .bot import ShadowBot
 from .needles import Needle
-from shadow.core.helpers import Borg
 
 from loguru import logger
 
@@ -23,7 +22,7 @@ logger.add(
 )
 
 
-class ShadowBotProxy(Borg, IShadowBot):
+class ShadowBotProxy(IShadowBot):
 
     """ShadowBot proxy class"""
 
@@ -34,28 +33,32 @@ class ShadowBotProxy(Borg, IShadowBot):
             shadowbot (ShadowBot): The instantiated ShadowBot instance to connect to
         """
 
-        self.__setup(essence)
+        name, tasks, history = essence
+        self.bot: ShadowBot = ShadowBot(name, tasks, history)
+        self.events: List[str] = list(self.bot.events.keys())
+        self.keep_alive: bool = False
 
-    def __setup(self, essence: Needle): # pragma: no cover
-        """Setup singleton instance
+    # ---------------------------------- Context --------------------------------- #
+
+    def setup(self):
+        """Setup context manager
         """
 
-        name, tasks, history = essence
-        shadowbot: ShadowBot = ShadowBot(name, tasks, history)
+        if not self.bot.alive(): self.bot.start()
 
-        super().__init__()
+    def __enter__(self):
+        """Gives access to the context manager
+        """
 
-        ATTR: List[str] = ["bot", "events", "keep_alive"]
+        self.setup()
+        return self
 
-        setters: Dict[str, Any] = {
-            "bot": shadowbot,
-            "events": list(shadowbot.events.keys()),
-            "keep_alive": False
-        }
+    def __exit__(self, *_):
+        """Cleans up the context manager
+        """
 
-        for attribute in ATTR:
-            if not hasattr(self, attribute):
-                setattr(self, attribute, setters[attribute])
+        if not self.keep_alive and self.alive(): self.kill()
+
 
     # --------------------------------- Interface -------------------------------- #
 
@@ -155,24 +158,3 @@ class ShadowBotProxy(Borg, IShadowBot):
 
         _, result = response
         return result
-
-    # ---------------------------------- Context --------------------------------- #
-
-    def setup(self):
-        """Setup context manager
-        """
-
-        if not self.bot.alive(): self.bot.start()
-
-    def __enter__(self):
-        """Gives access to the context manager
-        """
-
-        return self.setup()
-
-    def __exit__(self, *_):
-        """Cleans up the context manager
-        """
-
-        if not self.keep_alive and self.alive(): self.kill()
-

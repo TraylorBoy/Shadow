@@ -75,8 +75,8 @@ class ShadowBot(IShadowBot):
             [Optional[Tuple[str, any]]]: Result from the requested task
         """
 
-        self.request(event="wait", task=task)
         self.request(event="result", task=task)
+        time.sleep(1)
 
         if self.responses.empty():
             logger.warning("No responses were found from ShadowBot")

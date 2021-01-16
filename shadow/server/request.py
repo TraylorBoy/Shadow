@@ -1,6 +1,6 @@
 """Request class for handling requests sent from the client"""
 
-from shadow.core import ShadowBot, Needles
+from shadow.core.bot import ShadowBot, Needles, Needle
 
 from functools import partial
 from typing import Optional, Any, Dict, Callable, Tuple, List
@@ -36,15 +36,12 @@ class ShadowRequest(object):
             [Tuple[str, Optional[Any]]]: Response to the client
         """
 
-        logger.info("Sending over needles data")
+        resp: Dict[str, Needle] = {}
+        with self.needles:
+            resp = self.needles.pool
 
-        response: List[Tuple[str, Dict[str, partial]]] = []
-
-        for needle in self.needles:
-            logger.debug(needle)
-            response.append((needle.id, needle.essence))
-
-        return ("NEEDLES", response)
+        logger.info(f"Sending over needles data: {resp}")
+        return ("NEEDLES", resp)
 
     def __build(self, data: Optional[Any]):
         """Builds a ShadowBot and sews it
@@ -56,15 +53,18 @@ class ShadowRequest(object):
             [Tuple[str, Optional[Any]]]: Response to the client
         """
 
-        name, tasks = data
+        essence: Needle = data
 
-        logger.info(f"Building ShadowBot: {name}, {tasks}")
+        logger.info(f"Building ShadowBot with essence: {essence}")
 
-        shadowbot: ShadowBot = ShadowBot(name, tasks)
+        successful: bool = False
+        with self.needles:
+            self.needles.sew(essence)
 
-        self.needles.sew(bot=shadowbot)
+            name, _, _ = essence
+            successful = self.needles.check(name)
 
-        return ("BUILD", shadowbot.essence)
+        return ("BUILD", successful)
 
     def handle(self, message: Tuple[str, Optional[Any]]):
         """Processes messages sent from the client
