@@ -3,8 +3,16 @@ import pytest
 from multiprocessing import Queue
 from typing import Any, Optional, Tuple
 
-from shadow import ShadowClone, ShadowBot, ShadowBotProxy, Needles, ShadowNetwork
+from shadow import ShadowClone, ShadowBot, ShadowBotProxy, Needle, Needles, ShadowNetwork, ShadowNetworkProxy
 from shadow.core.helpers import Tasks
+
+# ----------------------------------- Tasks ---------------------------------- #
+
+def test_tasks():
+    """Tests Tasks helper class
+    """
+
+    assert Tasks.get(task="does not exist") is None
 
 # -------------------------------- ShadowClone ------------------------------- #
 
@@ -86,18 +94,18 @@ def run(bot: ShadowBot, event: str, task: Optional[str]):
         task (Optional[str]): Task to perform
 
     Returns:
-        [Tuple[str, Any]]: Response from ShadowBot instance
+        [Optional[Any]]: Response from ShadowBot instance
     """
 
     turn_on(bot)
 
     bot.request(event, task)
     bot.request("wait", task)
-    resp: Tuple[str, Any] = bot.response(task)
+    resp: Optional[Any] = bot.response(task)
 
     turn_off(bot) if event != "kill" else None
 
-    return resp[1]
+    return resp
 
 @pytest.fixture
 def bot():
@@ -115,33 +123,28 @@ def bot():
     return ShadowBot(name="TestBot", tasks=_tasks)
 
 def test_bot(bot):
-    """Tests the ShadowBot class
-    """
 
     assert bot.perform(task="does not exist") is None
     assert bot.wait(task="does not exist") is None
     assert bot.jutsu(task="does not exist") is None
-    assert bot.result(task="does not exist") is None
-    assert bot.hist(task="does not exist") is None
     assert bot.alive(task="does not exist") is None
     assert bot.alive(task="sleep") is None
     assert bot.stop() is None
     assert bot.response(task="sleep") is None
+    assert isinstance(bot.essence, Needle)
 
     assert turn_on(bot)
     assert turn_off(bot)
     assert restart(bot)
     assert turn_off(bot)
 
-    assert run(bot, event="kill", task=None)
-    assert run(bot, event="perform", task="sleep")
+    assert run(bot, event="kill", task=None) is None
+    assert not bot.alive()
 
-    _sum: int = run(bot, event="perform", task="sum")
-    assert _sum == 2
+    assert run(bot, event="perform", task="sleep")
+    assert run(bot, event="perform", task="sum") == 2
 
 def test_bot_proxy(bot):
-    """Tests the ShadowBotProxy class
-    """
 
     proxy: ShadowBotProxy = ShadowBotProxy(essence=bot.essence)
 
@@ -158,8 +161,6 @@ def test_bot_proxy(bot):
     assert not proxy.alive()
 
 def test_needles(bot):
-    """Tests the needles class
-    """
 
     needles: Needles = Needles()
     needles.reset()
@@ -185,17 +186,19 @@ def test_needles(bot):
         needles.retract(bot.name)
         assert not needles.check(bot.name)
 
+
 # ---------------------------------- Network --------------------------------- #
 
 def test_network(bot):
-    """Tests the ShadowNetwork, ShadowRequest, ShadowServer, and ShadowClient classes
-    """
 
-    network: ShadowNetwork = ShadowNetwork(host="127.0.0.1", port=8080)
+    network: ShadowNetwork = ShadowNetwork(host="127.0.0.1", port=8081)
+
+    assert network.kill() is None
+    assert network.request(event="none", data=None) is None
+    assert network.stop() is None
 
     assert network.serve()
     assert network.alive()
-    assert network.status()
 
     event, data = network.request(event="needles")
     assert event == "NEEDLES" and len(data) == 0
@@ -208,8 +211,16 @@ def test_network(bot):
 
     network.kill()
     assert not network.alive()
-    assert network.status() is None
 
-def test_network_proxy():
-    assert True
+def test_network_proxy(bot):
+
+    proxy: ShadowNetworkProxy = ShadowNetworkProxy(host="127.0.0.1", port=8081)
+
+    assert proxy.serve()
+    assert proxy.alive()
+
+    event, data = proxy.request(event="needles")
+    assert event == "NEEDLES" and len(data) == 1 and bot.name in data.keys()
+
+    assert proxy.kill()
 

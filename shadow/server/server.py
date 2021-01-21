@@ -139,14 +139,6 @@ class ShadowServer(Borg):
         # Server shutdown, cleanup
         self.sock.close()
 
-    def alive(self):
-        """Checks if server is accepting new connections
-
-        Returns:
-            [bool]: Server is alive or not
-        """
-
-        return self.__alive
 
 
 

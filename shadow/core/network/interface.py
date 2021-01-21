@@ -22,9 +22,5 @@ class IShadowNetwork(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def status(self):
-        raise NotImplementedError()
-
-    @abstractmethod
     def request(self, event: str, data: Optional[Any]):
         raise NotImplementedError()

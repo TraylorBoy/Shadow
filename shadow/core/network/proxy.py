@@ -28,7 +28,7 @@ class ShadowNetworkProxy(IShadowNetwork):
 
     """ShadowNetwork Proxy class"""
 
-    def __init__(self, network: ShadowNetwork):
+    def __init__(self, host: str, port: int):
         """Instantiates the shadow network instance
 
         Args:
@@ -36,7 +36,9 @@ class ShadowNetworkProxy(IShadowNetwork):
             port (int, optional): Port the server is listening on. Defaults to 0.
         """
 
-        self.network: ShadowNetwork = network
+        self.network: ShadowNetwork = ShadowNetwork(host, port)
+
+# --------------------------------- Interface -------------------------------- #
 
     def serve(self):
         """Start running the ServerBot
@@ -45,34 +47,20 @@ class ShadowNetworkProxy(IShadowNetwork):
             [bool]: Server started successfully or not
         """
 
-        self.network.serve()
-        time.sleep(1)
+        is_successful: bool = self.network.serve()
 
-        return self.alive()
+        return is_successful
 
     def kill(self):
         """Stops the running server instance
 
         Returns:
-            [Tuple[str, Optional[Any]]]: Shutdown message received from the server
+            [bool]: Shutdown was successful or not
         """
 
-        resp: Tuple[str, Optional[Any]] = self.network.kill()
-        time.sleep(1)
+        is_dead: bool = self.network.kill()
 
-        return resp
-
-    def send(self, message: Tuple[str, Optional[Any]]):
-        """Sends a message to the running server instance
-
-        Args:
-            message (Tuple[str, Optional[Any]]): Message to send to the server
-
-        Returns:
-            [Optional[Tuple[str, Optional[Any]]]]: Response received from the server
-        """
-
-        return self.network.send(message)
+        return is_dead
 
     def alive(self):
         """Checks if network is running
@@ -83,15 +71,23 @@ class ShadowNetworkProxy(IShadowNetwork):
 
         return self.network.alive()
 
-    def status(self):
-        """Checks if server is connected
+    def request(self, event: str, data: Optional[Any] = None):
+        """Sends a message to the running server instance
+
+        Args:
+            event (str): Event to send
+            data (Optional[Any]): Data associated with the request. Defaults to None.
 
         Returns:
-            [bool]: Server is listening
+            [Optional[Tuple[str, Optional[Any]]]]: Response received from the server
         """
 
-        return self.network.status()
+        return self.network.request(event, data)
 
+
+# ---------------------------------- Helpers --------------------------------- #
+
+    @logger.catch
     def build(self, name: str, tasks: Dict[str, partial]):
         """Builds a ShadowBot on the network
 
@@ -103,7 +99,7 @@ class ShadowNetworkProxy(IShadowNetwork):
             [Optional[Tuple[str, Optional[Any]]]: Response received from the server
         """
 
-        data: Tuple[str, Dict[str, partial]] = (name, tasks)
+        args: Tuple[str, Dict[str, partial]] = (name, tasks)
 
-        return self.send(message=("build", data))
+        return self.request(event="build", data=args)
 

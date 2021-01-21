@@ -63,12 +63,12 @@ class ShadowBotProxy(IShadowBot):
     # --------------------------------- Interface -------------------------------- #
 
     @logger.catch
-    def request(self, event: str, task: Optional[str]):
+    def request(self, event: str, task: Optional[str] = None):
         """Sends a request to the ShadowBot
 
         Args:
             event (str): Type of request to send
-            task (Optional[str]): Task to send to the ShadowBot if the request type is "wait" or "perform"
+            task (Optional[str]): Task to send to the ShadowBot if the request type is "wait" or "perform". Defaults to None.
         """
 
         if event not in self.events:
@@ -154,7 +154,6 @@ class ShadowBotProxy(IShadowBot):
         self.perform(task)
         self.wait(task)
 
-        response: Tuple[str, Any] = self.response(task)
+        response: Optional[Any] = self.response(task)
 
-        _, result = response
-        return result
+        return response

@@ -2,6 +2,7 @@
 
 import time
 import multiprocessing as mp
+from threading import Thread
 
 from functools import partial
 from typing import Dict, Any, Optional, Callable, Tuple
@@ -36,7 +37,7 @@ class ShadowBot(IShadowBot):
             "kill": self.kill,
             "perform": self.perform,
             "wait": self.wait,
-            "result": self.result
+            "generate": self.generate,
         }
 
         self.context: Any = mp.get_context(method="spawn")
@@ -44,18 +45,19 @@ class ShadowBot(IShadowBot):
         self.results: self.context.Queue = self.context.Queue()
         self.requests: self.context.Queue = self.context.Queue()
         self.responses: self.context.Queue = self.context.Queue()
+        self.compilation: self.context.Queue = self.context.Queue()
 
         self.clones: Dict[str, ShadowClone] = {}
         self.history: Dict[str, Optional[Any]] = history
 
 # --------------------------------- Interface -------------------------------- #
 
-    def request(self, event: str, task: Optional[str]):
+    def request(self, event: str, task: Optional[str] = None):
         """Sends a request to the ShadowBot
 
         Args:
             event (str): Type of request to send
-            task (Optional[str]): Task to send to the ShadowBot if the request type is "wait" or "perform"
+            task (Optional[str]): Task to send to the ShadowBot if the request type is "wait" or "perform". Defaults to None
         """
 
         if not self.alive():
@@ -72,21 +74,28 @@ class ShadowBot(IShadowBot):
             task (str): Task to retrieve the result for
 
         Returns:
-            [Optional[Tuple[str, any]]]: Result from the requested task
+            [Optional[Any]]: Result from the requested task
         """
 
-        self.request(event="result", task=task)
+        self.request(event="generate")
         time.sleep(1)
 
-        if self.responses.empty():
-            logger.warning("No responses were found from ShadowBot")
-            return None
+        if not self.responses.empty():
+            try:
 
-        response: Tuple[str, Any] = self.responses.get()
+                response: Dict[str, Optional[Any]] = self.responses.get(timeout=10)
 
-        logger.info(f"Result compiled: {response}")
+                if task not in response.keys(): # pragma: no cover
+                    logger.warning(f"No responses were found for {task}")
+                    return None
 
-        return response
+                logger.info(f"Result compiled: {response[task]}")
+
+                return response[task]
+
+            except mp.TimeoutError: # pragma: no cover
+                logger.warning("Response timed out")
+                return None
 
     def alive(self, task: Optional[str] = None): # pragma: no cover
         """Checks if ShadowBot process has started
@@ -169,7 +178,6 @@ class ShadowBot(IShadowBot):
         """
 
         self.state = "off"
-        self.responses.put(("KILL", True))
 
 # ----------------------------------- State ---------------------------------- #
 
@@ -229,8 +237,19 @@ class ShadowBot(IShadowBot):
     def core(self):
         """Method is called when the process is started"""
 
+        # Start compiler
+        compiler: ShadowClone = ShadowClone(name="compiler", args=(self.compiler, self.results))
+        compiler.start()
+
         while True:
             if self.state == "off":  # pragma: no cover
+                try:
+                    logger.debug("Waiting for compiler to join")
+                    compiler.join(timeout=10)
+                except mp.TimeoutError: # pragma: no cover
+                    logger.warning("Compiler failed to join, terminating")
+                    compiler.terminate()
+
                 logger.warning("Shutting down")
                 break
 
@@ -240,60 +259,58 @@ class ShadowBot(IShadowBot):
 
                 if event in self.events.keys():
                     logger.info(f"Handling event: {event}")
-                    self.events[event]() if event not in ["perform", "wait", "result"] else self.events[event](task)
+                    self.events[event]() if event not in ["perform", "wait"] else self.events[event](task)
 
                 else: # pragma: no cover
                     logger.critical(f"Unable to handle event: {event}")
                     continue
 
                 logger.info(f"Successfully handled event: {event}")
+                time.sleep(1)
 
         logger.info("ShadowBot stopped successfully")
 
-    def compile(self):
+    @logger.catch
+    def compiler(self):
         """Checks for results in the results queue and stores them in the history
         """
 
-        while not self.results.empty():
+        logger.debug("Running compiler")
+        while True:
+            if self.state == "off":  # pragma: no cover
+                logger.debug("Checking for results before stopping compiler")
+                self.compile()
+                logger.warning("Stopping compiler")
+                break
+
+            self.compile()
+
+    @logger.catch
+    def compile(self):
+        """Checks for results and puts them into compilation queue
+        """
+
+        if not self.results.empty():
+            logger.debug("Retrieving results")
+
             task, result = self.results.get()
             logger.debug(f"{result} compiled for {task}")
-
             self.history[task] = result
 
-    def result(self, task: str):
-        """Retrieves the compiled result for the given task from the history
+            logger.debug("Putting history into compilation queue")
+            self.compilation.put(self.history)
 
-        Args:
-            task (str): Task to retrieve the result for
+    @logger.catch
+    def generate(self):
+        """Sends over the result history
 
         Returns:
-            [Optional[Any]]: Result from the performed task
+            [Dict[str, Optional[Any]]]: Result of every task executed
         """
 
-        if task not in self.tasks.keys():
-            logger.critical(f"{task} not found")
-            return None
+        logger.info("Sending over result history")
 
-        self.compile()
-
-        if task not in self.history.keys(): # pragma: no cover
-            logger.warning(f"Result for {task} not found")
-            return None
-
-        self.responses.put((task, self.hist(task)))
-
-    def hist(self, task: str):
-        """Retrieve the result for a task from the history
-
-        Args:
-            task (str): Task to retrieve the result for
-        """
-
-        if task not in self.history.keys():
-            logger.warning(f"Result for {task} not found")
-            return None
-
-        return self.history[task]
+        self.responses.put(self.compilation.get()) if not self.compilation.empty() else logger.warning("Results were not generated")
 
     @property
     def essence(self):

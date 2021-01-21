@@ -48,7 +48,6 @@ class ShadowNetwork(Borg, IShadowNetwork):
         if not hasattr(self, "host"): self.host: str = host
         if not hasattr(self, "port"): self.port: int = port
         if not hasattr(self, "server"): self.server: ShadowServer = ShadowServer(self.host, self.port)
-        if not hasattr(self, "client"): self.client: ShadowClient = ShadowClient(self.host, self.port)
         if not hasattr(self, "server_bot"): self.__setup_server_bot()
 
     def __setup_server_bot(self):
@@ -57,8 +56,7 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
         server_tasks: Dict[str, partial] = {
             "serve": partial(self.server.serve),
-            "shutdown": partial(self.stop),
-            "status": partial(self.server.alive)
+            "shutdown": partial(self.stop)
         }
 
         essence: Needle = Needle(name="ServerBot", tasks=server_tasks, history={})
@@ -93,10 +91,9 @@ class ShadowNetwork(Borg, IShadowNetwork):
             return None
 
         resp: Optional[Any] = None
-        self.server_bot.keep_alive = False
-
         with self.server_bot:
             resp = self.server_bot.jutsu(task="shutdown")
+            self.server_bot.keep_alive = False
 
         return resp
 
@@ -109,24 +106,6 @@ class ShadowNetwork(Borg, IShadowNetwork):
         """
 
         return self.server_bot.alive()
-
-    @logger.catch
-    def status(self):
-        """Checks if server process is listening for requests
-
-        Returns:
-            [Optional[Any]]: Server status response
-        """
-
-        if not self.alive():
-            logger.critical("ServerBot is not alive")
-            return None
-
-        resp: Optional[Any] = None
-        with self.server_bot:
-            resp = self.server_bot.jutsu(task="status")
-
-        return resp
 
     @logger.catch
     def request(self, event: str, data: Optional[Any] = None):
@@ -151,6 +130,17 @@ class ShadowNetwork(Borg, IShadowNetwork):
 
 # ----------------------------------- Core ----------------------------------- #
 
+    @property
+    def client(self):
+        """Client connection to the server
+
+        Returns:
+            [ShadowClient]: Instantiated client object
+        """
+
+        return ShadowClient(self.host, self.port)
+
+    @logger.catch
     def stop(self):
         """Sends a shutdown signal to the server
 
@@ -161,5 +151,7 @@ class ShadowNetwork(Borg, IShadowNetwork):
         if not self.alive():
             logger.critical("ServerBot is not alive")
             return None
+
+        logger.debug("Sending shutdown request to server")
 
         return self.client.send(message=("shutdown", None))
