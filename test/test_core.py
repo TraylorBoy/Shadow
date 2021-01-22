@@ -1,9 +1,9 @@
 import pytest
 
 from multiprocessing import Queue
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 
-from shadow import ShadowClone, ShadowBot, ShadowBotProxy, Needle, Needles, ShadowNetwork, ShadowNetworkProxy
+from shadow import ShadowClone, ShadowBot, ShadowBotProxy, Needle, Needles, ShadowNetwork
 from shadow.core.helpers import Tasks
 
 # ----------------------------------- Tasks ---------------------------------- #
@@ -138,7 +138,7 @@ def test_bot(bot):
     assert restart(bot)
     assert turn_off(bot)
 
-    assert run(bot, event="kill", task=None) is None
+    assert run(bot, event="stop", task=None) is None
     assert not bot.alive()
 
     assert run(bot, event="perform", task="sleep")
@@ -211,16 +211,3 @@ def test_network(bot):
 
     network.kill()
     assert not network.alive()
-
-def test_network_proxy(bot):
-
-    proxy: ShadowNetworkProxy = ShadowNetworkProxy(host="127.0.0.1", port=8081)
-
-    assert proxy.serve()
-    assert proxy.alive()
-
-    event, data = proxy.request(event="needles")
-    assert event == "NEEDLES" and len(data) == 1 and bot.name in data.keys()
-
-    assert proxy.kill()
-

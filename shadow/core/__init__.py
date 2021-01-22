@@ -1,2 +1,2 @@
 from shadow.core.bot import ShadowBot, ShadowClone, ShadowBotProxy, IShadowBot, Needle, Needles
-from shadow.core.network import ShadowNetwork, ShadowNetworkProxy, IShadowNetwork
+from shadow.core.network import ShadowNetwork, IShadowNetwork

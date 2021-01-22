@@ -34,7 +34,7 @@ class ShadowBot(IShadowBot):
         self.tasks: Dict[str, partial] = tasks
         self.state: str = "off"
         self.events: Dict[str, Callable] = {
-            "kill": self.kill,
+            "stop": self.kill,
             "perform": self.perform,
             "wait": self.wait,
             "generate": self.generate,
@@ -215,7 +215,7 @@ class ShadowBot(IShadowBot):
         logger.info("Stopping")
 
         # Send a kill signal
-        self.requests.put(("kill", None))
+        self.requests.put(("stop", None))
 
         # Wait for process to rejoin
         self.soul.join(timeout=10)
